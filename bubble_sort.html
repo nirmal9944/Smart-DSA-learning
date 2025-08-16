@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Bubble Sort Visualizer</title>
+  <style>
+    :root{
+      --bg: #0f172a;
+      --card: #0b1220;
+      --accent: #7c3aed;
+      --muted: #94a3b8;
+      --glass: rgba(255,255,255,0.03);
+    }
+    html,body{height:100%;margin:0;font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial}
+    body{background:linear-gradient(180deg,var(--bg),#071024);color:#e6eef8;display:flex;align-items:center;justify-content:center;padding:28px}
+
+    .app{
+      width:100%;max-width:980px;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));border-radius:12px;padding:18px;box-shadow:0 6px 30px rgba(2,6,23,0.7);
+    }
+    header{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+    h1{font-size:18px;margin:0}
+    p.lead{margin:0;color:var(--muted);font-size:13px}
+
+    .controls{display:flex;gap:12px;flex-wrap:wrap;margin:12px 0}
+    .controls > *{background:var(--glass);padding:10px;border-radius:10px}
+
+    input[type="text"], textarea{background:transparent;border:1px solid rgba(255,255,255,0.06);padding:8px;border-radius:8px;color:inherit;min-width:260px}
+    textarea{min-height:56px}
+    label{font-size:12px;color:var(--muted);display:block;margin-bottom:6px}
+
+    .btn{background:linear-gradient(90deg,var(--accent),#5b21b6);border:none;padding:10px 14px;border-radius:10px;color:white;cursor:pointer}
+    .btn:disabled{opacity:0.45;cursor:not-allowed}
+
+    .vis-wrap{height:360px;border-radius:10px;padding:12px;background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.005));display:flex;align-items:flex-end;gap:6px;overflow:hidden;border:1px solid rgba(255,255,255,0.03)}
+
+    .bar{
+      flex:1 0 calc(100% / 12 - 6px);
+      background:linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02));
+      border-radius:6px 6px 3px 3px;display:flex;align-items:flex-end;justify-content:center;position:relative;min-width:18px;max-width:80px;transition:height 300ms ease, background-color 200ms ease;cursor:default
+    }
+    .bar .label{position:absolute;top:8px;font-size:12px;color:var(--muted)}
+    .bar .value{padding:6px 8px;font-weight:600;font-size:13px;color:white}
+
+    .bar.comparing{background:linear-gradient(180deg,#f59e0b,#b45309)}
+    .bar.swapped{background:linear-gradient(180deg,#10b981,#047857)}
+    .bar.sorted{background:linear-gradient(180deg,#06b6d4,#0ea5a6)}
+
+    .footer{display:flex;justify-content:space-between;align-items:center;margin-top:12px;color:var(--muted);font-size:13px}
+
+    .status{min-width:220px}
+
+    @media (max-width:700px){
+      .vis-wrap{height:240px}
+      .controls{gap:8px}
+      input[type="text"]{min-width:180px}
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <div style="flex:1">
+        <h1>Bubble Sort Visualizer</h1>
+        <p class="lead">Enter numbers (comma/space separated). Press <strong>Generate</strong> then <strong>Start</strong> to watch Bubble Sort animate.</p>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:12px;color:var(--muted)">Algorithm</div>
+        <div style="font-weight:700">Bubble Sort</div>
+      </div>
+    </header>
+
+    <div class="controls">
+      <div>
+        <label>Input numbers (e.g. 5,3,8,4,2)</label>
+        <textarea id="inputNumbers" placeholder="Type numbers separated by commas or spaces">5, 3, 8, 4, 2</textarea>
+      </div>
+
+      <div>
+        <label>Options</label>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <div style="display:flex;gap:8px;align-items:center">
+            <button id="generateBtn" class="btn">Generate</button>
+            <button id="startBtn" class="btn">Start</button>
+            <button id="resetBtn" class="btn">Reset</button>
+          </div>
+
+          <div style="display:flex;gap:8px;align-items:center">
+            <label style="min-width:70px">Speed</label>
+            <input id="speed" type="range" min="50" max="1000" value="300" />
+            <span id="speedLabel">300 ms</span>
+          </div>
+
+          <div style="display:flex;gap:8px;align-items:center">
+            <label style="min-width:70px">Show Steps</label>
+            <input id="showSteps" type="checkbox" checked />
+          </div>
+        </div>
+      </div>
+
+      <div style="flex:1;min-width:240px">
+        <label>Details</label>
+        <div style="background:transparent;border:1px solid rgba(255,255,255,0.03);padding:10px;border-radius:8px;min-height:70px;color:var(--muted)" id="details">
+          Ready — generate an array to visualize.
+        </div>
+      </div>
+    </div>
+
+    <div class="vis-wrap" id="vis"></div>
+
+    <div class="footer">
+      <div class="status" id="status">Status: idle</div>
+      <div id="finalOutput">Sorted: —</div>
+    </div>
+  </div>
+
+  <script>
+    // Utility helpers
+    const $ = (s) => document.querySelector(s);
+    const $$ = (s) => Array.from(document.querySelectorAll(s));
+
+    const input = $('#inputNumbers');
+    const generateBtn = $('#generateBtn');
+    const startBtn = $('#startBtn');
+    const resetBtn = $('#resetBtn');
+    const vis = $('#vis');
+    const details = $('#details');
+    const status = $('#status');
+    const finalOutput = $('#finalOutput');
+    const speedInput = $('#speed');
+    const speedLabel = $('#speedLabel');
+    const showSteps = $('#showSteps');
+
+    let arr = [];
+    let bars = [];
+    let running = false;
+
+    function parseInputText(text){
+      // split by comma or whitespace
+      return text.trim().split(/[,\s]+/).map(x => Number(x)).filter(x => !Number.isNaN(x));
+    }
+
+    function createBars(numbers){
+      vis.innerHTML = '';
+      bars = [];
+      if(numbers.length === 0) return;
+      const max = Math.max(...numbers);
+      const min = Math.min(...numbers);
+      const range = Math.max(1, max - min);
+
+      numbers.forEach((n, idx) =>{
+        const bar = document.createElement('div');
+        bar.className = 'bar';
+        const heightPct = 30 + Math.round(((n - min) / range) * 70); // 30% to 100%
+        bar.style.height = heightPct + '%';
+        bar.dataset.value = n;
+        bar.innerHTML = `<div class="label">${idx}</div><div class="value">${n}</div>`;
+        vis.appendChild(bar);
+        bars.push(bar);
+      });
+    }
+
+    function updateDetails(text){ details.textContent = text; }
+    function setStatus(text){ status.textContent = 'Status: ' + text; }
+    function setFinalOutput(arr){ finalOutput.textContent = 'Sorted: ' + arr.join(', '); }
+
+    function swapHeights(a, b){
+      // Animate swap by swapping the height & data values & text
+      const ah = a.style.height;
+      const bh = b.style.height;
+      const av = a.dataset.value;
+      const bv = b.dataset.value;
+      a.style.height = bh;
+      b.style.height = ah;
+      a.dataset.value = bv;
+      b.dataset.value = av;
+      a.querySelector('.value').textContent = bv;
+      b.querySelector('.value').textContent = av;
+    }
+
+    function delay(ms){return new Promise(r=>setTimeout(r, ms));}
+
+    generateBtn.addEventListener('click', ()=>{
+      if(running) return;
+      const numbers = parseInputText(input.value);
+      if(numbers.length === 0){ updateDetails('No valid numbers found.'); return; }
+      arr = numbers.slice();
+      createBars(arr);
+      updateDetails('Array generated with ' + arr.length + ' elements.');
+      setStatus('ready');
+      setFinalOutput(['—']);
+    });
+
+    resetBtn.addEventListener('click', ()=>{
+      if(running) return;
+      input.value = '';
+      vis.innerHTML = '';
+      arr = [];
+      bars = [];
+      updateDetails('Reset to empty.');
+      setStatus('idle');
+      setFinalOutput(['—']);
+    });
+
+    speedInput.addEventListener('input', ()=>{ speedLabel.textContent = speedInput.value + ' ms'; });
+
+    startBtn.addEventListener('click', async ()=>{
+      if(running) return;
+      if(arr.length === 0){ updateDetails('No array. Click Generate first.'); return; }
+      running = true;
+      generateBtn.disabled = true;
+      startBtn.disabled = true;
+      resetBtn.disabled = true;
+      setStatus('sorting...');
+      updateDetails('Running bubble sort...');
+
+      const n = bars.length;
+      const speed = () => Number(speedInput.value);
+
+      // Bubble sort animation
+      for(let i=0;i<n;i++){
+        let swapped = false;
+        for(let j=0;j<n-i-1;j++){
+          // mark comparing
+          bars[j].classList.add('comparing');
+          bars[j+1].classList.add('comparing');
+          if(showSteps.checked) updateDetails(`Comparing index ${j} (value ${bars[j].dataset.value}) and ${j+1} (value ${bars[j+1].dataset.value})`);
+          await delay(speed());
+
+          const a = Number(bars[j].dataset.value);
+          const b = Number(bars[j+1].dataset.value);
+          if(a > b){
+            // swap visually
+            bars[j].classList.remove('comparing');
+            bars[j+1].classList.remove('comparing');
+            bars[j].classList.add('swapped');
+            bars[j+1].classList.add('swapped');
+            if(showSteps.checked) updateDetails(`Swapping ${a} and ${b}`);
+            await delay(speed());
+            swapHeights(bars[j], bars[j+1]);
+            swapped = true;
+            await delay(speed());
+            bars[j].classList.remove('swapped');
+            bars[j+1].classList.remove('swapped');
+          }
+
+          // unmark comparing
+          bars[j].classList.remove('comparing');
+          bars[j+1].classList.remove('comparing');
+        }
+        // mark last element as sorted
+        const sortedIndex = n - i - 1;
+        bars[sortedIndex].classList.add('sorted');
+        if(showSteps.checked) updateDetails(`Position ${sortedIndex} is now sorted (value ${bars[sortedIndex].dataset.value})`);
+        if(!swapped){
+          // already sorted
+          for(let k=0;k<n-i-1;k++) bars[k].classList.add('sorted');
+          break;
+        }
+      }
+
+      // collect final array
+      const final = bars.map(b => Number(b.dataset.value));
+      setFinalOutput(final);
+      updateDetails('Sorting complete.');
+      setStatus('done');
+      running = false;
+      generateBtn.disabled = false;
+      startBtn.disabled = false;
+      resetBtn.disabled = false;
+    });
+
+    // initialize with sample
+    window.addEventListener('load', ()=>{
+      // auto generate sample
+      const numbers = parseInputText(input.value);
+      if(numbers.length) { arr = numbers.slice(); createBars(arr); }
+    });
+  </script>
+</body>
+</html>

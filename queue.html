@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Linear Queue Visualizer</title>
+    <style>
+        :root {
+            --primary: #3498db;
+            --secondary: #2ecc71;
+            --danger: #e74c3c;
+            --bg: #222;
+            --plate: #f1c40f;
+        }
+
+        body {
+            background: var(--bg);
+            color: #fff;
+            font-family: Arial, sans-serif;
+            text-align: center;
+            padding: 20px;
+        }
+
+        h1 {
+            margin-bottom: 20px;
+        }
+
+        .queue-container {
+            position: relative;
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-top: 40px;
+        }
+
+        .slot {
+            width: 60px;
+            height: 100px;
+            border: 3px solid #555;
+            border-radius: 10px;
+            position: relative;
+            background: rgba(255, 255, 255, 0.05);
+            overflow: hidden;
+        }
+
+        .plate {
+            width: 100%;
+            height: 100%;
+            background: var(--plate);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            border-radius: 6px;
+            position: absolute;
+            top: -110%;
+            transition: top 0.4s ease, left 0.4s ease;
+        }
+
+        .plate.enter {
+            top: 0;
+        }
+
+        input[type="text"] {
+            padding: 8px 12px;
+            font-size: 16px;
+            border: 2px solid var(--primary);
+            border-radius: 6px;
+            outline: none;
+            background-color: rgba(255, 255, 255, 0.1);
+            color: white;
+            margin-right: 10px;
+            transition: border-color 0.3s, background-color 0.3s;
+        }
+
+        input[type="text"]:focus {
+            border-color: var(--secondary);
+            background-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .plate.exit {
+            top: -120%;
+        }
+
+        .front-marker,
+        .rear-marker {
+            position: absolute;
+            top: -30px;
+            width: 0;
+            height: 0;
+            border-left: 10px solid transparent;
+            border-right: 10px solid transparent;
+        }
+
+        .front-marker {
+            border-bottom: 15px solid var(--secondary);
+        }
+
+        .rear-marker {
+            border-bottom: 15px solid var(--primary);
+        }
+
+        .controls {
+            margin-top: 20px;
+        }
+
+        button {
+            background: var(--primary);
+            border: none;
+            padding: 10px 15px;
+            margin: 5px;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+            border-radius: 6px;
+        }
+
+        button:hover {
+            background: var(--secondary);
+        }
+
+        .status {
+            margin-top: 15px;
+            font-size: 18px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h1>Linear Queue Visualizer</h1>
+
+    <div class="queue-container" id="queueContainer"></div>
+
+    <div class="controls">
+        <input type="text" id="valueInput" placeholder="Enter value">
+        <button onclick="enqueue()">Enqueue</button>
+        <button onclick="dequeue()">Dequeue</button>
+    </div>
+
+    <div class="status" id="statusMsg"></div>
+
+    <script>
+        const size = 6;
+        let queue = new Array(size).fill(null);
+        let front = -1, rear = -1;
+
+        const container = document.getElementById('queueContainer');
+        const statusMsg = document.getElementById('statusMsg');
+
+        // Create slots
+        for (let i = 0; i < size; i++) {
+            const slot = document.createElement('div');
+            slot.className = 'slot';
+            container.appendChild(slot);
+        }
+
+        // Create markers
+        const frontMarker = document.createElement('div');
+        frontMarker.className = 'front-marker';
+        container.appendChild(frontMarker);
+
+        const rearMarker = document.createElement('div');
+        rearMarker.className = 'rear-marker';
+        container.appendChild(rearMarker);
+
+        function updateMarkers() {
+            if (front !== -1) {
+                const frontSlot = container.children[front];
+                frontMarker.style.left = frontSlot.offsetLeft + frontSlot.offsetWidth / 2 - 10 + 'px';
+                frontMarker.style.display = 'block';
+            } else {
+                frontMarker.style.display = 'none';
+            }
+
+            if (rear !== -1) {
+                const rearSlot = container.children[rear];
+                rearMarker.style.left = rearSlot.offsetLeft + rearSlot.offsetWidth / 2 - 10 + 'px';
+                rearMarker.style.display = 'block';
+            } else {
+                rearMarker.style.display = 'none';
+            }
+        }
+
+        async function enqueue() {
+            const val = document.getElementById('valueInput').value.trim();
+            if (!val) {
+                statusMsg.textContent = 'Please enter a value!';
+                statusMsg.style.color = 'yellow';
+                return;
+            }
+            if (rear === size - 1) {
+                statusMsg.textContent = 'Overflow — queue is full!';
+                statusMsg.style.color = 'var(--danger)';
+                return;
+            }
+            if (front === -1) {
+                front = 0;
+            }
+            rear++;
+            queue[rear] = val;
+
+            const slotEl = container.children[rear];
+            const plate = document.createElement('div');
+            plate.className = 'plate';
+            plate.textContent = val;
+            slotEl.appendChild(plate);
+
+            // animate from top
+            await new Promise(r => setTimeout(r, 10));
+            plate.classList.add('enter');
+
+            statusMsg.textContent = `Enqueued "${val}" at position ${rear}`;
+            statusMsg.style.color = 'var(--secondary)';
+            updateMarkers();
+        }
+
+        async function dequeue() {
+            if (front === -1 || front > rear) {
+                statusMsg.textContent = 'Underflow — queue is empty!';
+                statusMsg.style.color = 'var(--danger)';
+                return;
+            }
+
+            const slotEl = container.children[front];
+            const plate = slotEl.querySelector('.plate');
+            const val = queue[front];
+
+            if (plate) {
+                plate.classList.remove('enter');
+                plate.classList.add('exit');
+                await new Promise(r => setTimeout(r, 400));
+                if (slotEl.contains(plate)) slotEl.removeChild(plate);
+            }
+
+            queue[front] = null;
+            statusMsg.textContent = `Dequeued "${val}" from position ${front}`;
+            statusMsg.style.color = 'orange';
+            front++;
+
+            if (front > rear) {
+                front = -1;
+                rear = -1;
+            }
+            updateMarkers();
+        }
+
+        updateMarkers();
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,705 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>BST / AVL Visualizer — step-by-step & animations</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg1:#071124; --bg2:#041023;
+    --panel: rgba(255,255,255,0.02);
+    --muted:#9fb0c8; --accent:#7c3aed; --accent2:#06b6d4;
+    --good:#10b981; --warn:#f59e0b; --danger:#ef4444;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100vh;font-family:Inter,system-ui,Roboto,Arial;color:#e6eef8;
+    background: radial-gradient(1200px 600px at 10% 10%, rgba(124,58,237,0.06), transparent),
+                linear-gradient(180deg,var(--bg1),var(--bg2));
+    -webkit-font-smoothing:antialiased;padding:18px;}
+  a {color:inherit}
+  .app{max-width:1200px;margin:0 auto}
+  header{display:flex;justify-content:space-between;align-items:center;gap:16px}
+  h1{margin:0;font-size:20px}
+  p.lead{margin:4px 0 0;color:var(--muted);font-size:13px}
+  .layout{display:grid;grid-template-columns:360px 1fr;gap:18px;margin-top:18px}
+  .card{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));padding:14px;border-radius:12px;border:1px solid rgba(255,255,255,0.03)}
+  label{font-size:13px;color:var(--muted);display:block;margin-bottom:6px}
+  input[type="number"], select, input[type="text"]{width:100%;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:inherit}
+  .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  button{background:linear-gradient(90deg,var(--accent), #5b21b6);border:none;padding:8px 10px;border-radius:8px;color:white;cursor:pointer;font-weight:700}
+  button.secondary{background:transparent;border:1px solid rgba(255,255,255,0.06)}
+  .small{padding:6px 8px;font-size:13px}
+  .canvas{min-height:520px;overflow:auto}
+  .svgWrap{background:transparent;border-radius:12px;padding:8px}
+  svg { width:100%; height:640px; display:block; }
+  /* node style uses CSS transform for smooth animation */
+  .bst-node { transition: transform 420ms cubic-bezier(.2,.9,.3,1); }
+  .bst-rect { rx:10; ry:10; fill: url(#nodeGrad); stroke: rgba(0,0,0,0.25); filter: drop-shadow(0 8px 18px rgba(2,6,23,0.45)); }
+  .bst-val { font-weight:800; font-size:14px; fill:#02121b; pointer-events:none; text-anchor:middle; }
+  .bst-addr { font-size:10px; fill:rgba(0,0,0,0.6); pointer-events:none; text-anchor:middle; }
+  .edge { stroke: rgba(255,255,255,0.12); stroke-width:2.2; transition: stroke 200ms, stroke-width 200ms; }
+  .edge.highlight { stroke:#ffd166; stroke-width:3.2; }
+  .node.highlight { /* highlight wrapper class added to group */ }
+  .node-search .bst-rect { stroke:#ffd166; stroke-width:2.8; filter: drop-shadow(0 12px 22px rgba(255,209,102,0.12)); }
+  .node-traversal .bst-rect { stroke:#06b6d4; stroke-width:2.8; filter: drop-shadow(0 12px 28px rgba(6,182,212,0.12)); }
+  .node-found .bst-rect { stroke: var(--good); stroke-width:3.2; filter: drop-shadow(0 16px 30px rgba(16,185,129,0.14)); }
+  .controls .panel-row{display:flex;gap:8px}
+  .explain{min-height:56px;color:var(--muted);font-size:13px;margin-top:8px}
+  .footer{display:flex;justify-content:space-between;align-items:center;margin-top:8px;color:var(--muted);font-size:13px}
+  @media (max-width:980px){ .layout{grid-template-columns:1fr} svg{height:720px} }
+  /* overlay value mover */
+  .floatingVal {
+    position: absolute;
+    pointer-events:none;
+    background: linear-gradient(180deg,#7dd3fc,#06b6d4);
+    color:#02121b;
+    font-weight:800;
+    padding:6px 8px;
+    border-radius:8px;
+    transform-origin:center;
+    box-shadow: 0 12px 30px rgba(6,182,212,0.12);
+    transition: transform 520ms cubic-bezier(.2,.9,.3,1), opacity 320ms;
+  }
+</style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <div>
+        <h1>Tree Visualizer — BST & AVL</h1>
+        <p class="lead">Insert / Delete / Search with step-by-step explanations & animated rotations / relinking</p>
+      </div>
+      <div class="card">
+        <div style="font-weight:700">Interactive • Educational</div>
+      </div>
+    </header>
+
+    <div class="layout">
+      <div class="card">
+        <label>Mode</label>
+        <div class="row">
+          <select id="modeSelect">
+            <option value="bst">BST (no balancing)</option>
+            <option value="avl">AVL (auto-balance + rotations)</option>
+          </select>
+        </div>
+
+        <div style="margin-top:10px">
+          <label>Value</label>
+          <div class="row">
+            <input id="val" type="number" placeholder="e.g. 42" />
+            <button id="insert" class="small">Insert</button>
+            <button id="delete" class="small secondary">Delete</button>
+          </div>
+        </div>
+
+        <div style="margin-top:10px">
+          <label>Search</label>
+          <div class="row">
+            <input id="searchVal" type="number" placeholder="Search value" />
+            <button id="searchBtn" class="small">Search</button>
+            <button id="clearHighlights" class="small secondary">Clear</button>
+          </div>
+        </div>
+
+        <div style="margin-top:10px">
+          <label>Traversals</label>
+          <div class="row">
+            <button id="inorder" class="small">In-order</button>
+            <button id="preorder" class="small">Pre-order</button>
+            <button id="postorder" class="small">Post-order</button>
+            <button id="level" class="small">Level-order</button>
+          </div>
+        </div>
+
+        <div style="margin-top:10px">
+          <label>Step controls</label>
+          <div class="row">
+            <button id="stepPrev" class="small secondary">◀ Prev</button>
+            <button id="stepNext" class="small">Next ▶</button>
+            <button id="autoPlay" class="small">Auto</button>
+            <button id="clearTree" class="small secondary">Clear Tree</button>
+          </div>
+        </div>
+
+        <div class="explain card" id="explain">Steps & explanations appear here.</div>
+
+        <div class="footer">
+          <div>Nodes: <strong id="count">0</strong></div>
+          <div id="status">Status: ready</div>
+        </div>
+      </div>
+
+      <div class="canvas card canvas">
+        <div class="svgWrap" style="position:relative">
+          <svg id="svgRoot" viewBox="0 0 1200 700" preserveAspectRatio="xMinYMin meet">
+            <defs>
+              <linearGradient id="nodeGrad" x1="0" x2="0" y1="0" y2="1">
+                <stop offset="0%" stop-color="#7dd3fc"/>
+                <stop offset="100%" stop-color="#06b6d4"/>
+              </linearGradient>
+            </defs>
+            <!-- dynamic content -->
+          </svg>
+          <!-- floating value mover overlay -->
+          <div id="floatingContainer" style="position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+/* BST + AVL Visualizer with step recording & animations
+   - Mode: 'bst' or 'avl' (auto-balance)
+   - Step system: each action records steps; user can step through
+   - Deletion two-child: animate successor->target value copy, then remove successor and relink
+   - Rotations: perform rotation in data structure, call layout & animate positions (CSS transform)
+*/
+
+// ---------- Data structures & utilities ----------
+const svg = document.getElementById('svgRoot');
+const floating = document.getElementById('floatingContainer');
+const modeSelect = document.getElementById('modeSelect');
+const valInput = document.getElementById('val');
+const insertBtn = document.getElementById('insert');
+const deleteBtn = document.getElementById('delete');
+const searchVal = document.getElementById('searchVal');
+const searchBtn = document.getElementById('searchBtn');
+const inorderBtn = document.getElementById('inorder');
+const preorderBtn = document.getElementById('preorder');
+const postorderBtn = document.getElementById('postorder');
+const levelBtn = document.getElementById('level');
+const stepPrev = document.getElementById('stepPrev');
+const stepNext = document.getElementById('stepNext');
+const autoPlay = document.getElementById('autoPlay');
+const clearTree = document.getElementById('clearTree');
+const explain = document.getElementById('explain');
+const countEl = document.getElementById('count');
+const statusEl = document.getElementById('status');
+const clearHighlightsBtn = document.getElementById('clearHighlights');
+
+let root = null;
+let nodeCount = 0;
+let addressCounter = 1000;
+
+// steps: array of { type:'compare'|'go'|'insert'|'rotate'|'copy'|'delete'|'explain', node, target, info }
+let steps = [];
+let stepIndex = -1;
+let autoTimer = null;
+
+// ensure defs exists
+function resetSvg() {
+  while(svg.firstChild) svg.removeChild(svg.firstChild);
+  const defs = document.createElementNS('http://www.w3.org/2000/svg','defs');
+  defs.innerHTML = `<linearGradient id="nodeGrad" x1="0" x2="0" y1="0" y2="1">
+                      <stop offset="0%" stop-color="#7dd3fc"/><stop offset="100%" stop-color="#06b6d4"/>
+                    </linearGradient>`;
+  svg.appendChild(defs);
+}
+resetSvg();
+
+// node factory (includes height for AVL)
+function Node(val){
+  return { val: Number(val), left:null, right:null, height:1, addr: addressCounter++,
+           x:0, y:0, g:null };
+}
+
+// ---------- AVL helpers ----------
+function height(n){ return n ? n.height : 0; }
+function updateHeight(n){ if(n) n.height = Math.max(height(n.left), height(n.right)) + 1; }
+function balanceFactor(n){ return n ? height(n.left) - height(n.right) : 0; }
+
+// rotations that also return new root
+function rotateRight(y){
+  const x = y.left;
+  const T2 = x.right;
+  // rotation steps recorded earlier
+  x.right = y;
+  y.left = T2;
+  // update heights
+  updateHeight(y); updateHeight(x);
+  return x;
+}
+function rotateLeft(x){
+  const y = x.right;
+  const T2 = y.left;
+  y.left = x;
+  x.right = T2;
+  updateHeight(x); updateHeight(y);
+  return y;
+}
+
+// ---------- step recording wrappers for insert/delete ----------
+function recordStep(obj){ steps.push(obj); }
+
+// insert with step recording and AVL rotations (if mode === 'avl')
+function insertWithSteps(rootNode, val){
+  steps = [];
+  stepIndex = -1;
+  const mode = modeSelect.value;
+
+  function _insert(node){
+    if(!node){
+      const nd = Node(val);
+      nodeCount++;
+      recordStep({type:'insert', node:nd, info:`Inserted ${val} at address (${nd.addr})`});
+      return nd;
+    }
+    recordStep({type:'compare', node, info:`Compare ${val} with ${node.val}`});
+    if(val === node.val){
+      recordStep({type:'explain', info:`Value ${val} already exists — skipping insertion`});
+      return node;
+    }
+    if(val < node.val){
+      recordStep({type:'go', node, dir:'left', info:`Go left from ${node.val}`});
+      node.left = _insert(node.left);
+    } else {
+      recordStep({type:'go', node, dir:'right', info:`Go right from ${node.val}`});
+      node.right = _insert(node.right);
+    }
+
+    // update height & balance
+    if(mode === 'avl'){
+      updateHeight(node);
+      const bf = balanceFactor(node);
+      // left heavy
+      if(bf > 1){
+        if(val < node.left.val){
+          recordStep({type:'rotate', rot:'right', node, info:`Right rotation at ${node.val}`});
+          node = rotateRight(node);
+        } else {
+          recordStep({type:'rotate', rot:'left-right', node, info:`Left rotation at ${node.left.val} then Right at ${node.val}`});
+          node.left = rotateLeft(node.left);
+          node = rotateRight(node);
+        }
+      } else if(bf < -1){
+        if(val > node.right.val){
+          recordStep({type:'rotate', rot:'left', node, info:`Left rotation at ${node.val}`});
+          node = rotateLeft(node);
+        } else {
+          recordStep({type:'rotate', rot:'right-left', node, info:`Right rotation at ${node.right.val} then Left at ${node.val}`});
+          node.right = rotateRight(node.right);
+          node = rotateLeft(node);
+        }
+      }
+    }
+    return node;
+  }
+
+  rootNode = _insert(rootNode);
+  return rootNode;
+}
+
+// delete with steps (non-balanced BST delete; if mode avl we rebalance while unwinding)
+function deleteWithSteps(rootNode, val){
+  steps = [];
+  stepIndex = -1;
+  const mode = modeSelect.value;
+
+  function _minNode(node){
+    while(node.left) node = node.left;
+    return node;
+  }
+
+  function _delete(node){
+    if(!node){
+      recordStep({type:'explain', info:`Value ${val} not found`});
+      return null;
+    }
+    recordStep({type:'compare', node, info:`Compare ${val} with ${node.val}`});
+    if(val < node.val){
+      recordStep({type:'go', node, dir:'left', info:`Go left from ${node.val}`});
+      node.left = _delete(node.left);
+    } else if(val > node.val){
+      recordStep({type:'go', node, dir:'right', info:`Go right from ${node.val}`});
+      node.right = _delete(node.right);
+    } else {
+      // found node to delete
+      recordStep({type:'found', node, info:`Found node ${node.val} to delete`});
+      // Case 1: leaf
+      if(!node.left && !node.right){
+        recordStep({type:'delete', node, info:`Deleting leaf node ${node.val}`});
+        nodeCount--;
+        return null;
+      }
+      // Case 2: one child
+      if(!node.left || !node.right){
+        const child = node.left || node.right;
+        recordStep({type:'delete', node, child, info:`Replace ${node.val} with its child ${child.val}`});
+        nodeCount--;
+        return child;
+      }
+      // Case 3: two children — find successor, copy, delete successor
+      const succ = _minNode(node.right);
+      recordStep({type:'successor', node, succ, info:`Successor of ${node.val} is ${succ.val}`});
+      // animate copying successor value to node
+      recordStep({type:'copy', from:succ, to:node, info:`Copy ${succ.val} -> ${node.val}`});
+      node.val = succ.val; // value copied in the data model now
+      // delete successor from right subtree
+      node.right = _delete(node.right);
+    }
+
+    // After deletion, if AVL mode, rebalance
+    if(mode === 'avl'){
+      updateHeight(node);
+      const bf = balanceFactor(node);
+      if(bf > 1){
+        if(balanceFactor(node.left) >= 0){
+          recordStep({type:'rotate', rot:'right', node, info:`Right rotation at ${node.val}`});
+          node = rotateRight(node);
+        } else {
+          recordStep({type:'rotate', rot:'left-right', node, info:`Left rotation at ${node.left.val} then Right at ${node.val}`});
+          node.left = rotateLeft(node.left);
+          node = rotateRight(node);
+        }
+      } else if(bf < -1){
+        if(balanceFactor(node.right) <= 0){
+          recordStep({type:'rotate', rot:'left', node, info:`Left rotation at ${node.val}`});
+          node = rotateLeft(node);
+        } else {
+          recordStep({type:'rotate', rot:'right-left', node, info:`Right rotation at ${node.right.val} then Left at ${node.val}`});
+          node.right = rotateRight(node.right);
+          node = rotateLeft(node);
+        }
+      }
+    }
+    return node;
+  }
+
+  rootNode = _delete(rootNode);
+  return rootNode;
+}
+
+// ---------- layout & rendering ----------
+// we will assign x positions by doing an inorder traversal (index * spacing)
+function assignCoordinates(){
+  if(!root) return;
+  let idx = 0;
+  const spacingX = 100;
+  const levelGap = 90;
+  function dfs(n, depth){
+    if(!n) return;
+    dfs(n.left, depth+1);
+    n.x = 80 + (idx++)*spacingX;
+    n.y = 60 + depth*levelGap;
+    dfs(n.right, depth+1);
+  }
+  dfs(root, 0);
+}
+
+function render(){
+  resetSvg();
+  if(!root){ countEl.textContent = '0'; return; }
+  assignCoordinates();
+
+  // draw edges first
+  function drawEdges(n){
+    if(!n) return;
+    if(n.left){
+      const line = document.createElementNS('http://www.w3.org/2000/svg','line');
+      line.setAttribute('class','edge');
+      line.setAttribute('x1', n.x); line.setAttribute('y1', n.y+18);
+      line.setAttribute('x2', n.left.x); line.setAttribute('y2', n.left.y-18);
+      svg.appendChild(line);
+    }
+    if(n.right){
+      const line = document.createElementNS('http://www.w3.org/2000/svg','line');
+      line.setAttribute('class','edge');
+      line.setAttribute('x1', n.x); line.setAttribute('y1', n.y+18);
+      line.setAttribute('x2', n.right.x); line.setAttribute('y2', n.right.y-18);
+      svg.appendChild(line);
+    }
+    drawEdges(n.left);
+    drawEdges(n.right);
+  }
+  drawEdges(root);
+
+  // draw nodes (as groups) — use style.transform for animated movement
+  function drawNodes(n){
+    if(!n) return;
+    const g = document.createElementNS('http://www.w3.org/2000/svg','g');
+    g.classList.add('bst-node');
+    // use style.transform so CSS transition on transform applies
+    g.style.transform = `translate(${n.x}px, ${n.y}px)`;
+    // create rect
+    const rect = document.createElementNS('http://www.w3.org/2000/svg','rect');
+    rect.setAttribute('x', -36);
+    rect.setAttribute('y', -18);
+    rect.setAttribute('width', 72);
+    rect.setAttribute('height', 36);
+    rect.setAttribute('rx', 10);
+    rect.setAttribute('ry', 10);
+    rect.setAttribute('class','bst-rect');
+    g.appendChild(rect);
+    // value
+    const text = document.createElementNS('http://www.w3.org/2000/svg','text');
+    text.setAttribute('class','bst-val');
+    text.setAttribute('x', 0);
+    text.setAttribute('y', 6);
+    text.textContent = n.val;
+    g.appendChild(text);
+    // address
+    const addr = document.createElementNS('http://www.w3.org/2000/svg','text');
+    addr.setAttribute('class','bst-addr');
+    addr.setAttribute('x',0); addr.setAttribute('y',22);
+    addr.textContent = '('+n.addr+')';
+    g.appendChild(addr);
+
+    svg.appendChild(g);
+    n.g = g;
+    drawNodes(n.left); drawNodes(n.right);
+  }
+  drawNodes(root);
+
+  countEl.textContent = String(nodeCount);
+}
+
+// helper to clear all highlights
+function clearAllHighlights(){
+  const groups = svg.querySelectorAll('.bst-node');
+  groups.forEach(g => { g.classList.remove('node-search','node-traversal','node-found'); });
+  const edges = svg.querySelectorAll('.edge'); edges.forEach(e => e.classList.remove('highlight'));
+}
+
+// ---------- step playback & visuals ----------
+async function showStep(idx){
+  // bounds
+  if(idx < 0 || idx >= steps.length) return;
+  stepIndex = idx;
+  const s = steps[idx];
+  clearAllHighlights();
+  explain.textContent = s.info || '';
+  statusEl.textContent = `Step ${idx+1} / ${steps.length}`;
+  // handle step types
+  if(s.type === 'compare'){
+    if(s.node && s.node.g) s.node.g.classList.add('node-search');
+  } else if(s.type === 'go'){
+    if(s.node && s.node.g) s.node.g.classList.add('node-search');
+    // highlight edge to child
+    if(s.node && s.dir){
+      const child = (s.dir === 'left') ? s.node.left : s.node.right;
+      highlightEdgeBetween(s.node, child);
+    }
+  } else if(s.type === 'insert'){
+    // after render, find inserted node by address and highlight
+    render(); // ensure nodes have g
+    await sleep(10);
+    if(s.node && s.node.addr){
+      const n = findNodeByAddr(s.node.addr);
+      if(n && n.g) { n.g.classList.add('node-traversal'); pulse(n.g); }
+    }
+  } else if(s.type === 'rotate'){
+    // show rotating nodes and perform rotation(s) visually by performing the rotation in data model
+    // we already applied rotation to data model during insertion/deletion (we recorded step after we mutated)
+    // render to animate
+    render();
+    if(s.node && s.node.g) { s.node.g.classList.add('node-traversal'); }
+  } else if(s.type === 'successor'){
+    // highlight successor and node
+    if(s.node && s.node.g) s.node.g.classList.add('node-search');
+    if(s.succ && s.succ.g) s.succ.g.classList.add('node-traversal');
+  } else if(s.type === 'copy'){
+    // animate copying value from s.from to s.to
+    await animateCopyValue(s.from, s.to);
+    // after animation show small pulse on destination
+    if(s.to && s.to.g) { s.to.g.classList.add('node-traversal'); pulse(s.to.g); }
+    render(); // re-render values (data was already updated)
+  } else if(s.type === 'delete'){
+    // node removal already applied to data model; we animate by rendering then fading removed
+    render();
+  } else if(s.type === 'found'){
+    if(s.node && s.node.g) s.node.g.classList.add('node-found');
+  } else if(s.type === 'explain'){
+    // just show textual explanation
+  }
+}
+
+// helper: highlight edge between parent & child
+function highlightEdgeBetween(parent, child){
+  if(!parent || !child) return;
+  const lines = svg.querySelectorAll('line.edge');
+  lines.forEach(l => {
+    // compare coordinates
+    const x1 = +l.getAttribute('x1'), y1 = +l.getAttribute('y1');
+    const x2 = +l.getAttribute('x2'), y2 = +l.getAttribute('y2');
+    if(Math.abs(x1 - parent.x) < 2 && Math.abs(y1 - parent.y-18) < 2 &&
+       Math.abs(x2 - child.x) < 2 && Math.abs(y2 - child.y+18) < 4){
+      l.classList.add('highlight');
+    }
+  });
+}
+
+// animate copy: create floating DOM element and move from source g to target g
+function animateCopyValue(fromNode, toNode){
+  return new Promise(resolve => {
+    // ensure render & have g elements
+    render();
+    requestAnimationFrame(()=> {
+      const fromEl = fromNode.g;
+      const toEl = toNode.g;
+      if(!fromEl || !toEl){
+        resolve(); return;
+      }
+      // compute positions relative to svg container
+      const svgRect = svg.getBoundingClientRect();
+      const fromRect = fromEl.getBoundingClientRect();
+      const toRect = toEl.getBoundingClientRect();
+      const fv = document.createElement('div');
+      fv.className = 'floatingVal';
+      fv.textContent = fromNode.val;
+      // initial placement
+      fv.style.left = (fromRect.left - svgRect.left + fromRect.width/2 - 30) + 'px';
+      fv.style.top = (fromRect.top - svgRect.top + fromRect.height/2 - 14) + 'px';
+      fv.style.opacity = '1';
+      floating.appendChild(fv);
+      // force reflow then move
+      requestAnimationFrame(()=> {
+        fv.style.transform = `translate(${toRect.left - fromRect.left}px, ${toRect.top - fromRect.top}px) scale(1.05)`;
+      });
+      setTimeout(()=> {
+        // remove floating and resolve
+        fv.style.opacity = '0';
+        setTimeout(()=> { if(fv.parentElement) fv.parentElement.removeChild(fv); resolve(); }, 220);
+      }, 520);
+    });
+  });
+}
+
+function pulse(group){
+  group.style.transition = 'transform 180ms';
+  group.style.transform += ' scale(1.06)';
+  setTimeout(()=> { group.style.transform = group.style.transform.replace(' scale(1.06)',''); }, 280);
+}
+
+// helpers
+function findNodeByAddr(addr){
+  let found = null;
+  function dfs(n){ if(!n) return; if(n.addr === addr) { found = n; return;} dfs(n.left); dfs(n.right); }
+  dfs(root); return found;
+}
+
+function sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
+
+// ---------- operations triggered by UI (they record steps then start step playback) ----------
+insertBtn.addEventListener('click', async ()=>{
+  const v = Number(valInput.value);
+  if(Number.isNaN(v)) { status('Enter a number'); return; }
+  // perform insertion with steps
+  root = insertWithSteps(root, v);
+  // after insert, render initial tree
+  render();
+  status(`Inserted ${v} — use steps to view the process`);
+  // start at first step
+  stepIndex = -1;
+  if(steps.length) showStep(0);
+});
+
+deleteBtn.addEventListener('click', async ()=>{
+  const v = Number(valInput.value);
+  if(Number.isNaN(v)) { status('Enter a number'); return; }
+  root = deleteWithSteps(root, v);
+  // after deletion operations might have mutated the tree; render then step through recorded steps
+  render();
+  status(`Delete ${v} — use steps to view the process`);
+  stepIndex = -1;
+  if(steps.length) showStep(0);
+});
+
+searchBtn.addEventListener('click', async ()=>{
+  const v = Number(searchVal.value);
+  if(Number.isNaN(v)) { status('Enter a number'); return; }
+  // perform search and generate path steps
+  steps = [];
+  stepIndex = -1;
+  let cur = root;
+  while(cur){
+    recordStep({type:'compare', node:cur, info:`Compare ${v} with ${cur.val}`});
+    if(v === cur.val){ recordStep({type:'found', node:cur, info:`Found ${v}`}); break; }
+    if(v < cur.val){
+      recordStep({type:'go', node:cur, dir:'left', info:`Go left from ${cur.val}`});
+      cur = cur.left;
+    } else {
+      recordStep({type:'go', node:cur, dir:'right', info:`Go right from ${cur.val}`});
+      cur = cur.right;
+    }
+  }
+  if(!cur) recordStep({type:'explain', info:`Value ${v} not found`});
+  // play steps
+  if(steps.length) showStep(0);
+});
+
+inorderBtn.addEventListener('click', async ()=>{
+  if(!root) { status('Tree empty'); return; }
+  const seq = [];
+  function dfs(n){ if(!n) return; dfs(n.left); seq.push(n); dfs(n.right); }
+  dfs(root);
+  steps = seq.map(n => ({type:'traverse', node:n, info:`Visit ${n.val}`})); stepIndex=-1;
+  showStep(0);
+  // play through all
+  for(let i=0;i<steps.length;i++){ await sleep(450); await showStep(i); }
+  status('In-order finished');
+});
+
+preorderBtn.addEventListener('click', async ()=>{
+  if(!root) { status('Tree empty'); return; }
+  const seq = [];
+  function dfs(n){ if(!n) return; seq.push(n); dfs(n.left); dfs(n.right); }
+  dfs(root);
+  steps = seq.map(n => ({type:'traverse', node:n, info:`Visit ${n.val}`})); stepIndex=-1;
+  for(let i=0;i<steps.length;i++){ await sleep(450); await showStep(i); }
+  status('Pre-order finished');
+});
+
+postorderBtn.addEventListener('click', async ()=>{
+  if(!root) { status('Tree empty'); return; }
+  const seq = [];
+  function dfs(n){ if(!n) return; dfs(n.left); dfs(n.right); seq.push(n); }
+  dfs(root);
+  steps = seq.map(n => ({type:'traverse', node:n, info:`Visit ${n.val}`})); stepIndex=-1;
+  for(let i=0;i<steps.length;i++){ await sleep(450); await showStep(i); }
+  status('Post-order finished');
+});
+
+levelBtn.addEventListener('click', async ()=>{
+  if(!root) { status('Tree empty'); return; }
+  const q=[root]; const seq=[];
+  while(q.length){ const n=q.shift(); seq.push(n); if(n.left) q.push(n.left); if(n.right) q.push(n.right); }
+  steps = seq.map(n => ({type:'traverse', node:n, info:`Visit ${n.val}`})); stepIndex=-1;
+  for(let i=0;i<steps.length;i++){ await sleep(450); await showStep(i); }
+  status('Level-order finished');
+});
+
+stepNext.addEventListener('click', async ()=>{
+  if(steps.length === 0) { status('No steps to play'); return; }
+  if(stepIndex + 1 < steps.length) { stepIndex++; await showStep(stepIndex); }
+});
+stepPrev.addEventListener('click', ()=>{
+  if(steps.length === 0) { status('No steps'); return; }
+  if(stepIndex - 1 >= 0){ stepIndex--; showStep(stepIndex); }
+});
+autoPlay.addEventListener('click', ()=>{
+  if(autoTimer){ clearInterval(autoTimer); autoTimer=null; autoPlay.textContent='Auto'; status('Auto stopped'); return; }
+  if(steps.length===0){ status('No steps'); return; }
+  autoPlay.textContent='Stop';
+  autoTimer = setInterval(()=> {
+    if(stepIndex + 1 >= steps.length){ clearInterval(autoTimer); autoTimer=null; autoPlay.textContent='Auto'; status('Auto finished'); return; }
+    stepIndex++; showStep(stepIndex);
+  }, 650);
+});
+
+clearTree.addEventListener('click', ()=>{ root=null; nodeCount=0; addressCounter=1000; steps=[]; stepIndex=-1; render(); status('Tree cleared'); explain.textContent=''; });
+
+stepIndex = -1;
+render();
+status('Ready — choose mode (BST or AVL). Try inserting 50,30,70,20,40,60,80 to see rotations.');
+
+// helper status
+function status(t){ statusEl.textContent = 'Status: ' + t; }
+
+// expose some helpers for debug
+window._tv = { root, render, steps };
+
+</script>
+</body>
+</html>

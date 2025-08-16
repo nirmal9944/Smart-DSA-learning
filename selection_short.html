@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Selection Sort Visualizer</title>
+  <style>
+    :root{
+      --bg:#071024; --card:#0b1220; --muted:#9aa6b2; --accent:#ef4444; --ok:#10b981; --info:#06b6d4;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;min-height:100vh;font-family:Inter,system-ui,Segoe UI,Roboto,Arial;color:#e6eef8;background:linear-gradient(180deg,#071024,#021025);display:flex;align-items:center;justify-content:center;padding:20px}
+    .app{width:100%;max-width:980px;background:rgba(255,255,255,0.02);border-radius:12px;padding:18px;box-shadow:0 10px 30px rgba(2,6,23,0.7)}
+    header{display:flex;justify-content:space-between;align-items:center}
+    h1{font-size:18px;margin:0}
+    .lead{margin:0;color:var(--muted);font-size:13px}
+
+    .controls{display:flex;gap:12px;flex-wrap:wrap;margin-top:12px}
+    .card{background:rgba(255,255,255,0.01);padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,0.03)}
+    textarea{width:320px;min-height:56px;background:transparent;border:1px solid rgba(255,255,255,0.04);padding:8px;border-radius:8px;color:inherit}
+    .btn{background:linear-gradient(90deg,#7c3aed,#5b21b6);border:none;padding:8px 12px;border-radius:8px;color:white;cursor:pointer}
+    .btn:disabled{opacity:0.5;cursor:not-allowed}
+
+    .vis-wrap{height:360px;border-radius:10px;padding:12px;background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.005));display:flex;align-items:flex-end;gap:6px;overflow:hidden;border:1px solid rgba(255,255,255,0.03);margin-top:12px}
+    .bar{flex:1 0 calc(100% / 12 - 6px);background:linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));border-radius:6px 6px 3px 3px;display:flex;align-items:flex-end;justify-content:center;position:relative;min-width:18px;max-width:100px;transition:height 250ms ease, background-color 200ms ease}
+    .bar .label{position:absolute;top:8px;font-size:12px;color:var(--muted)}
+    .bar .value{padding:6px 8px;font-weight:600;font-size:13px;color:white}
+
+    .bar.comparing{background:linear-gradient(180deg,#f59e0b,#b45309)}
+    .bar.current-min{background:linear-gradient(180deg,#ef4444,#be123c)}
+    .bar.swapped{background:linear-gradient(180deg,#10b981,#047857)}
+    .bar.sorted{background:linear-gradient(180deg,#06b6d4,#0ea5a6)}
+
+    .footer{display:flex;justify-content:space-between;align-items:center;margin-top:12px;color:var(--muted);font-size:13px}
+    label{font-size:12px;color:var(--muted);display:block;margin-bottom:6px}
+
+    @media (max-width:720px){
+      textarea{width:100%}
+      .controls{flex-direction:column}
+      .vis-wrap{height:240px}
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <div>
+        <h1>Selection Sort Visualizer</h1>
+        <p class="lead">Enter numbers (comma/space separated). Generate then Start to watch Selection Sort animated.</p>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:12px;color:var(--muted)">Algorithm</div>
+        <div style="font-weight:700">Selection Sort</div>
+      </div>
+    </header>
+
+    <div class="controls">
+      <div class="card">
+        <label>Input numbers (e.g. 5,3,8,4,2)</label>
+        <textarea id="inputNumbers">5, 3, 8, 4, 2</textarea>
+      </div>
+
+      <div class="card" style="display:flex;flex-direction:column;gap:8px;min-width:260px">
+        <div style="display:flex;gap:8px">
+          <button id="generateBtn" class="btn">Generate</button>
+          <button id="startBtn" class="btn">Start</button>
+          <button id="resetBtn" class="btn">Reset</button>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:8px">
+          <label style="min-width:60px">Speed</label>
+          <input id="speed" type="range" min="50" max="1200" value="300" />
+          <span id="speedLabel">300 ms</span>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:8px">
+          <label style="min-width:60px">Show Steps</label>
+          <input id="showSteps" type="checkbox" checked />
+        </div>
+      </div>
+
+      <div class="card" style="flex:1;min-width:220px">
+        <label>Details</label>
+        <div id="details" style="min-height:70px;color:var(--muted);">Ready — generate an array.</div>
+      </div>
+    </div>
+
+    <div id="vis" class="vis-wrap"></div>
+
+    <div class="footer">
+      <div id="status">Status: idle</div>
+      <div id="finalOutput">Sorted: —</div>
+    </div>
+  </div>
+
+  <script>
+    const $ = (s) => document.querySelector(s);
+    const input = $('#inputNumbers');
+    const generateBtn = $('#generateBtn');
+    const startBtn = $('#startBtn');
+    const resetBtn = $('#resetBtn');
+    const vis = $('#vis');
+    const details = $('#details');
+    const status = $('#status');
+    const finalOutput = $('#finalOutput');
+    const speedInput = $('#speed');
+    const speedLabel = $('#speedLabel');
+    const showSteps = $('#showSteps');
+
+    let arr = [];
+    let bars = [];
+    let running = false;
+
+    function parseInputText(text){
+      return text.trim().split(/[,\s]+/).map(x=>Number(x)).filter(x=>!Number.isNaN(x));
+    }
+
+    function createBars(numbers){
+      vis.innerHTML = '';
+      bars = [];
+      if(numbers.length === 0) return;
+      const max = Math.max(...numbers);
+      const min = Math.min(...numbers);
+      const range = Math.max(1, max - min);
+      numbers.forEach((n, idx) =>{
+        const bar = document.createElement('div');
+        bar.className = 'bar';
+        const heightPct = 30 + Math.round(((n - min) / range) * 70);
+        bar.style.height = heightPct + '%';
+        bar.dataset.value = n;
+        bar.innerHTML = `<div class="label">${idx}</div><div class="value">${n}</div>`;
+        vis.appendChild(bar);
+        bars.push(bar);
+      });
+    }
+
+    function updateDetails(text){ details.textContent = text; }
+    function setStatus(text){ status.textContent = 'Status: ' + text; }
+    function setFinalOutput(arr){ finalOutput.textContent = 'Sorted: ' + arr.join(', '); }
+
+    function swapHeights(a, b){
+      const ah = a.style.height; const bh = b.style.height;
+      const av = a.dataset.value; const bv = b.dataset.value;
+      a.style.height = bh; b.style.height = ah;
+      a.dataset.value = bv; b.dataset.value = av;
+      a.querySelector('.value').textContent = bv;
+      b.querySelector('.value').textContent = av;
+    }
+
+    function delay(ms){return new Promise(r=>setTimeout(r, ms));}
+
+    generateBtn.addEventListener('click', ()=>{
+      if(running) return;
+      const numbers = parseInputText(input.value);
+      if(numbers.length === 0){ updateDetails('No valid numbers found.'); return; }
+      arr = numbers.slice();
+      createBars(arr);
+      updateDetails('Array generated with ' + arr.length + ' elements.');
+      setStatus('ready');
+      setFinalOutput(['—']);
+    });
+
+    resetBtn.addEventListener('click', ()=>{
+      if(running) return;
+      input.value = '';
+      vis.innerHTML = '';
+      arr = [];
+      bars = [];
+      updateDetails('Reset to empty.');
+      setStatus('idle');
+      setFinalOutput(['—']);
+    });
+
+    speedInput.addEventListener('input', ()=>{ speedLabel.textContent = speedInput.value + ' ms'; });
+
+    startBtn.addEventListener('click', async ()=>{
+      if(running) return;
+      if(bars.length === 0){ updateDetails('No array. Click Generate first.'); return; }
+      running = true;
+      generateBtn.disabled = true; startBtn.disabled = true; resetBtn.disabled = true;
+      setStatus('sorting...'); updateDetails('Running selection sort...');
+      const n = bars.length;
+      const speed = () => Number(speedInput.value);
+
+      for(let i=0;i<n-1;i++){
+        // assume min at i
+        let minIdx = i;
+        bars[minIdx].classList.add('current-min');
+        if(showSteps.checked) updateDetails(`Selecting index ${i} as current min (value ${bars[minIdx].dataset.value})`);
+        await delay(speed());
+
+        for(let j=i+1;j<n;j++){
+          bars[j].classList.add('comparing');
+          if(showSteps.checked) updateDetails(`Comparing index ${j} (value ${bars[j].dataset.value}) with current min index ${minIdx} (value ${bars[minIdx].dataset.value})`);
+          await delay(speed());
+
+          const valJ = Number(bars[j].dataset.value);
+          const valMin = Number(bars[minIdx].dataset.value);
+          if(valJ < valMin){
+            // new min found
+            bars[minIdx].classList.remove('current-min');
+            minIdx = j;
+            bars[minIdx].classList.add('current-min');
+            if(showSteps.checked) updateDetails(`New min found at index ${minIdx} (value ${bars[minIdx].dataset.value})`);
+            await delay(speed());
+          }
+          bars[j].classList.remove('comparing');
+        }
+
+        // swap i and minIdx if needed
+        if(minIdx !== i){
+          bars[i].classList.add('swapped');
+          bars[minIdx].classList.add('swapped');
+          if(showSteps.checked) updateDetails(`Swapping index ${i} (value ${bars[i].dataset.value}) with min index ${minIdx} (value ${bars[minIdx].dataset.value})`);
+          await delay(speed());
+          swapHeights(bars[i], bars[minIdx]);
+          await delay(speed());
+          bars[i].classList.remove('swapped');
+          bars[minIdx].classList.remove('swapped');
+        } else {
+          if(showSteps.checked) updateDetails(`Index ${i} already has the correct (minimum) value`);
+          await delay(speed());
+        }
+
+        // mark position i as sorted
+        bars[i].classList.add('sorted');
+        bars[minIdx].classList.remove('current-min');
+      }
+
+      // last element is sorted
+      if(bars.length) bars[bars.length-1].classList.add('sorted');
+
+      const final = bars.map(b => Number(b.dataset.value));
+      setFinalOutput(final);
+      updateDetails('Sorting complete.');
+      setStatus('done');
+      running = false;
+      generateBtn.disabled = false; startBtn.disabled = false; resetBtn.disabled = false;
+    });
+
+    window.addEventListener('load', ()=>{
+      const numbers = parseInputText(input.value);
+      if(numbers.length){ arr = numbers.slice(); createBars(arr); }
+    });
+  </script>
+</body>
+</html>

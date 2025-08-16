@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Quick Sort Visualizer — Step / Back</title>
+  <style>
+    :root{--bg:#071024;--muted:#9aa6b2;--accent:#7c3aed;--pivot:#ef4444;--compare:#f59e0b;--swap:#10b981;--sorted:#06b6d4}
+    *{box-sizing:border-box}
+    body{margin:0;min-height:100vh;font-family:Inter,system-ui,Segoe UI,Roboto,Arial;background:linear-gradient(180deg,#071024,#021025);color:#e6eef8;display:flex;align-items:flex-start;justify-content:center;padding:20px}
+    .app{width:100%;max-width:1100px;background:rgba(255,255,255,0.02);border-radius:12px;padding:18px;box-shadow:0 10px 30px rgba(2,6,23,0.7)}
+    header{display:flex;justify-content:space-between;align-items:center}
+    h1{font-size:18px;margin:0}
+    .lead{margin:0;color:var(--muted);font-size:13px}
+
+    .controls{display:flex;gap:12px;flex-wrap:wrap;margin-top:12px}
+    .card{background:rgba(255,255,255,0.01);padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,0.03)}
+    textarea{width:420px;min-height:56px;background:transparent;border:1px solid rgba(255,255,255,0.04);padding:8px;border-radius:8px;color:inherit}
+    .btn{background:linear-gradient(90deg,var(--accent),#5b21b6);border:none;padding:8px 12px;border-radius:8px;color:white;cursor:pointer}
+    .btn:disabled{opacity:0.45;cursor:not-allowed}
+    .small{padding:6px 8px;font-size:14px}
+
+    .array-wrap{height:340px;border-radius:10px;padding:12px;background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.005));display:flex;align-items:flex-end;gap:6px;overflow:hidden;border:1px solid rgba(255,255,255,0.03);margin-top:12px}
+    .bar{flex:1 0 calc(100% / 12 - 6px);background:linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));border-radius:6px 6px 3px 3px;display:flex;align-items:flex-end;justify-content:center;position:relative;min-width:18px;max-width:120px;transition:height 220ms ease, background-color 160ms ease}
+    .bar .val{padding:6px 6px;font-weight:700;font-size:13px;color:white}
+    .bar .idx{position:absolute;top:6px;font-size:11px;color:var(--muted)}
+
+    .bar.pivot{background:linear-gradient(180deg,var(--pivot),#b91c1c)}
+    .bar.compare{background:linear-gradient(180deg,var(--compare),#b45309)}
+    .bar.swap{background:linear-gradient(180deg,var(--swap),#047857)}
+    .bar.sorted{background:linear-gradient(180deg,var(--sorted),#0ea5a6)}
+
+    .controls-bottom{display:flex;gap:8px;align-items:center;margin-top:12px}
+    .pseudocode{margin-top:12px;padding:12px;border-radius:8px;background:rgba(255,255,255,0.01);border:1px solid rgba(255,255,255,0.03);font-family:Menlo,monospace;font-size:13px;color:var(--muted);line-height:1.45}
+    .pseudocode .line{padding:4px 6px;border-radius:6px}
+    .pseudocode .active{background:linear-gradient(90deg, rgba(124,58,237,0.18), rgba(91,33,182,0.12));color:#fff}
+
+    .footer{display:flex;justify-content:space-between;align-items:center;margin-top:12px;color:var(--muted);font-size:13px}
+
+    @media (max-width:900px){ textarea{width:100%} .array-wrap{height:240px} }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <div>
+        <h1>Quick Sort Visualizer — Step & Back</h1>
+        <p class="lead">Enter numbers, Generate steps, then use Next / Prev to step through the algorithm slowly. Play will auto-advance.</p>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:12px;color:var(--muted)">Algorithm</div>
+        <div style="font-weight:700">Quick Sort (Lomuto partition, pivot = last)</div>
+      </div>
+    </header>
+
+    <div class="controls">
+      <div class="card">
+        <label for="input">Input numbers (comma/space separated)</label>
+        <textarea id="input">8, 3, 1, 7, 0, 10, 2</textarea>
+        <div style="margin-top:8px;display:flex;gap:8px;align-items:center">
+          <button id="generate" class="btn small">Generate Steps</button>
+          <button id="reset" class="btn small">Reset</button>
+          <select id="examples" style="margin-left:8px;padding:6px;border-radius:6px;background:transparent;border:1px solid rgba(255,255,255,0.04);color:var(--muted)">
+            <option value="">Examples...</option>
+            <option value="8,3,1,7,0,10,2">Classic</option>
+            <option value="5,3,8,4,2">Small</option>
+            <option value="1,2,3,4,5">Sorted</option>
+            <option value="5,4,3,2,1">Reverse</option>
+            <option value="20,5,16,2,25,8,7,14,1">Random</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="card" style="min-width:260px;display:flex;flex-direction:column;gap:8px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <label style="min-width:60px">Speed</label>
+          <input id="speed" type="range" min="200" max="2000" value="700" />
+          <span id="speedLabel">700 ms</span>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:8px">
+          <label style="min-width:60px">Auto</label>
+          <button id="play" class="btn small">Play</button>
+          <button id="pause" class="btn small">Pause</button>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:8px">
+          <label style="min-width:60px">Step</label>
+          <button id="prev" class="btn small">Prev</button>
+          <button id="next" class="btn small">Next</button>
+        </div>
+
+      </div>
+
+      <div class="card" style="flex:1;min-width:220px">
+        <label>Details</label>
+        <div id="details" style="min-height:80px;color:var(--muted);">No steps generated yet.</div>
+      </div>
+    </div>
+
+    <div id="array" class="array-wrap" aria-live="polite"></div>
+
+    <div class="controls-bottom">
+      <div class="pseudocode" id="pseudocode">
+        <div class="line" data-line="1">1. quickSort(arr, low, high):</div>
+        <div class="line" data-line="2">2. &nbsp;&nbsp;if low &lt; high:</div>
+        <div class="line" data-line="3">3. &nbsp;&nbsp;&nbsp;&nbsp;pivot = arr[high]  // choose pivot</div>
+        <div class="line" data-line="4">4. &nbsp;&nbsp;&nbsp;&nbsp;i = low - 1</div>
+        <div class="line" data-line="5">5. &nbsp;&nbsp;&nbsp;&nbsp;for j = low to high-1:</div>
+        <div class="line" data-line="6">6. &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if arr[j] &lt;= pivot: i++; swap arr[i], arr[j]</div>
+        <div class="line" data-line="7">7. &nbsp;&nbsp;&nbsp;&nbsp;swap arr[i+1], arr[high]  // put pivot to correct position</div>
+        <div class="line" data-line="8">8. &nbsp;&nbsp;&nbsp;&nbsp;quickSort(arr, low, pivotIndex-1)</div>
+        <div class="line" data-line="9">9. &nbsp;&nbsp;&nbsp;&nbsp;quickSort(arr, pivotIndex+1, high)</div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <div id="stepInfo">Step: 0 / 0</div>
+      <div id="final" style="color:var(--muted)">Sorted: —</div>
+    </div>
+  </div>
+
+<script>
+  // Quick Sort Visualizer with forward/back stepping
+  const inputEl = document.getElementById('input');
+  const generateBtn = document.getElementById('generate');
+  const resetBtn = document.getElementById('reset');
+  const examples = document.getElementById('examples');
+  const speed = document.getElementById('speed');
+  const speedLabel = document.getElementById('speedLabel');
+  const playBtn = document.getElementById('play');
+  const pauseBtn = document.getElementById('pause');
+  const nextBtn = document.getElementById('next');
+  const prevBtn = document.getElementById('prev');
+  const arrayWrap = document.getElementById('array');
+  const details = document.getElementById('details');
+  const pseudocode = document.getElementById('pseudocode');
+  const stepInfo = document.getElementById('stepInfo');
+  const finalLabel = document.getElementById('final');
+
+  let original = [];
+  let steps = []; // each step = {arr:[], meta:{...}}
+  let idx = 0;
+  let timer = null;
+
+  function parseNumbers(text){
+    return text.trim().split(/[,\s]+/).map(x=>Number(x)).filter(x=>!Number.isNaN(x));
+  }
+
+  function createBars(arr, meta={}){
+    arrayWrap.innerHTML = '';
+    if(!arr || arr.length === 0) return;
+    const min = Math.min(...arr);
+    const max = Math.max(...arr);
+    const range = (max - min) || 1;
+    for(let i=0;i<arr.length;i++){
+      const bar = document.createElement('div');
+      bar.className = 'bar';
+      const h = 28 + Math.round(((arr[i]-min)/range) * 280);
+      bar.style.height = h + 'px';
+      const idxEl = document.createElement('div'); idxEl.className='idx'; idxEl.textContent = i;
+      const val = document.createElement('div'); val.className='val'; val.textContent = arr[i];
+      bar.appendChild(idxEl); bar.appendChild(val);
+      // highlights based on meta
+      if(meta.pivotIndex === i) bar.classList.add('pivot');
+      if(meta.compareIndex === i) bar.classList.add('compare');
+      if(meta.iIndex === i) bar.classList.add('swap'); // mark i as swap color optionally
+      if(meta.swap && meta.swap.includes(i)) bar.classList.add('swap');
+      if(meta.sortedRanges){
+        for(const r of meta.sortedRanges){ if(i>=r[0] && i<=r[1]) { bar.classList.add('sorted'); break; } }
+      }
+      arrayWrap.appendChild(bar);
+    }
+  }
+
+  function pushStep(arrSnapshot, meta){
+    steps.push({arr: arrSnapshot.slice(), meta: JSON.parse(JSON.stringify(meta || {}))});
+  }
+
+  function generateSteps(arr){
+    steps = [];
+    const a = arr.slice();
+    // initial state
+    pushStep(a, {action:'init'});
+
+    function snapshot(meta){ pushStep(a, meta); }
+
+    function quickSort(l, r){
+      if(l>=r){
+        if(l===r) snapshot({action:'single', sortedRanges:[[l,l]], l, r, code:7});
+        return;
+      }
+      // choose pivot as last
+      const pivotIndex = r;
+      const pivotVal = a[pivotIndex];
+      snapshot({action:'choose_pivot', pivotIndex, l, r, code:3});
+      let i = l-1;
+      snapshot({action:'init_partition', l, r, i, pivotIndex, code:4});
+      for(let j=l;j<=r-1;j++){
+        snapshot({action:'compare', l, r, i, j, pivotIndex, code:5});
+        if(a[j] <= pivotVal){
+          i++;
+          // swap a[i] and a[j]
+          const tmp = a[i]; a[i] = a[j]; a[j] = tmp;
+          snapshot({action:'swap', l, r, i, j, pivotIndex, swap:[i,j], code:6});
+        }
+      }
+      // place pivot
+      const p = i+1;
+      const tmp2 = a[p]; a[p] = a[r]; a[r] = tmp2;
+      snapshot({action:'pivot_placed', pivotFinal:p, l, r, code:7, sortedRanges:[[p,p]]});
+
+      // recurse left and right
+      quickSort(l, p-1);
+      quickSort(p+1, r);
+
+      // after finishing this range mark as sorted (optional)
+      snapshot({action:'range_done', l, r, sortedRanges:[[l,r]], code:8});
+    }
+
+    quickSort(0, a.length-1);
+    pushStep(a, {action:'done', sortedRanges:[[0,a.length-1]], code:9});
+  }
+
+  function renderCurrent(){
+    if(steps.length === 0){ stepInfo.textContent = 'Step: 0 / 0'; details.textContent = 'No steps yet.'; return; }
+    const s = steps[idx];
+    createBars(s.arr, s.meta);
+    stepInfo.textContent = `Step: ${idx+1} / ${steps.length}`;
+    details.textContent = s.meta.action ? `${s.meta.action} ${s.meta.l!==undefined?`(range ${s.meta.l}-${s.meta.r})`:''}` : '';
+    // highlight pseudocode
+    const lines = pseudocode.querySelectorAll('.line');
+    lines.forEach(el => el.classList.remove('active'));
+    const codeLine = s.meta.code || 0;
+    if(codeLine){
+      const el = pseudocode.querySelector(`.line[data-line=\"${codeLine}\"]`);
+      if(el) el.classList.add('active');
+    }
+    if(s.meta.action === 'done'){
+      finalLabel.textContent = 'Sorted: ' + s.arr.join(', ');
+    } else {
+      finalLabel.textContent = 'Sorted: —';
+    }
+  }
+
+  function nextStep(){
+    if(idx < steps.length - 1) { idx++; renderCurrent(); }
+    else { clearInterval(timer); timer = null; }
+  }
+  function prevStep(){ if(idx > 0) { idx--; renderCurrent(); } }
+
+  generateBtn.addEventListener('click', ()=>{
+    if(timer) { clearInterval(timer); timer=null; }
+    original = parseNumbers(inputEl.value);
+    if(original.length === 0){ details.textContent = 'No valid numbers.'; return; }
+    if(original.length > 60){ details.textContent = 'Please use ≤ 60 numbers for clear animation.'; }
+    generateSteps(original);
+    idx = 0; renderCurrent(); details.textContent = 'Steps generated: ' + steps.length;
+  });
+
+  examples.addEventListener('change', ()=>{ if(examples.value){ inputEl.value = examples.value; generateBtn.click(); } });
+  resetBtn.addEventListener('click', ()=>{ if(timer){ clearInterval(timer); timer=null;} original=[]; steps=[]; idx=0; array.innerHTML=''; details.textContent='Reset.'; stepInfo.textContent='Step: 0 / 0'; finalLabel.textContent='Sorted: —'; });
+
+  speed.addEventListener('input', ()=>{ speedLabel.textContent = speed.value + ' ms'; if(timer){ clearInterval(timer); timer = setInterval(nextStep, Number(speed.value)); } });
+
+  playBtn.addEventListener('click', ()=>{
+    if(steps.length === 0) { details.textContent = 'Generate steps first.'; return; }
+    if(timer) return;
+    timer = setInterval(()=>{
+      if(idx < steps.length -1) nextStep(); else { clearInterval(timer); timer=null; }
+    }, Number(speed.value));
+  });
+  pauseBtn.addEventListener('click', ()=>{ if(timer){ clearInterval(timer); timer=null; } });
+  nextBtn.addEventListener('click', ()=>{ if(timer) { clearInterval(timer); timer=null; } nextStep(); });
+  prevBtn.addEventListener('click', ()=>{ if(timer) { clearInterval(timer); timer=null; } prevStep(); });
+
+  // initialize view
+  window.addEventListener('load', ()=>{ const arr = parseNumbers(inputEl.value); if(arr.length) original = arr; if(original.length) { createBars(original); details.textContent='Loaded sample.'; } });
+</script>
+</body>
+</html>

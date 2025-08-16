@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Learning Time - Smart DSA Visualizer & Learning Platform. Search, filter, and learn algorithms interactively.">
+    <meta name="keywords" content="DSA Visualizer, Data Structures, Algorithms, Sorting, Programming, C++, Java, Python, HTML, CSS, JavaScript, React">
+    <meta name="author" content="Learning Time">
+    <title>Learning Time - Smart DSA Learning Platform</title>
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
+    <style>
+        * {margin: 0; padding: 0; box-sizing: border-box;}
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: radial-gradient(circle at top, #0d1117, #05070a);
+            color: #fff;
+            overflow-x: hidden;
+        }
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 30px;
+            background: rgba(22, 27, 34, 0.9);
+            backdrop-filter: blur(10px);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+        }
+        header h1 {
+            font-size: 1.6em;
+            color: #58a6ff;
+            text-shadow: 0px 0px 10px #58a6ff;
+            font-weight: 700;
+        }
+        nav {
+            display: flex;
+            gap: 20px;
+        }
+        nav a {
+            color: #fff;
+            text-decoration: none;
+            font-weight: 500;
+            position: relative;
+        }
+        nav a::after {
+            content: "";
+            position: absolute;
+            bottom: -5px;
+            left: 0;
+            width: 0%;
+            height: 2px;
+            background: #58a6ff;
+            transition: width 0.3s ease;
+        }
+        nav a:hover::after {width: 100%;}
+        .menu-icon {
+            display: none;
+            font-size: 1.5em;
+            cursor: pointer;
+        }
+        @media(max-width: 768px) {
+            nav {display: none; flex-direction: column; background: #161b22; position: absolute; top: 60px; right: 0; width: 200px; padding: 10px; border-radius: 10px;}
+            nav.show {display: flex;}
+            .menu-icon {display: block;}
+        }
+        /* Search & Filter */
+        .search-filter {
+            display: flex;
+            gap: 10px;
+            padding: 20px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        .search-filter input, .search-filter select {
+            padding: 8px 12px;
+            border-radius: 8px;
+            border: none;
+            outline: none;
+            font-size: 0.95em;
+            background: #161b22;
+            color: #fff;
+            box-shadow: 0 0 10px rgba(88,166,255,0.3);
+        }
+        /* Courses */
+        .courses {
+            padding: 20px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 20px;
+        }
+        .course-card {
+            background: linear-gradient(145deg, #1f2937, #111827);
+            padding: 25px;
+            border-radius: 15px;
+            text-align: center;
+            cursor: pointer;
+            transition: transform 0.4s ease, box-shadow 0.4s ease;
+            perspective: 1000px;
+            box-shadow: 0px 0px 20px rgba(88, 166, 255, 0.2);
+        }
+        .course-card:hover {
+            transform: rotateY(8deg) scale(1.05);
+            box-shadow: 0px 0px 30px rgba(88, 166, 255, 0.5);
+        }
+        .course-card h3 {color: #58a6ff;}
+        /* Algorithm List */
+        .algorithm-list {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.5s ease-out, padding 0.3s ease;
+            padding-top: 0;
+        }
+        .algorithm-list.open {
+            max-height: 1500px;
+            padding-top: 15px;
+        }
+        .algorithm {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(13, 17, 23, 0.8);
+            padding: 8px 12px;
+            margin-top: 8px;
+            border-radius: 10px;
+            box-shadow: inset 0 0 8px rgba(88, 166, 255, 0.3);
+        }
+        .algorithm button {
+            background: linear-gradient(45deg, #58a6ff, #1f6feb);
+            border: none;
+            padding: 5px 10px;
+            color: #fff;
+            cursor: pointer;
+            border-radius: 5px;
+            font-size: 0.85em;
+            margin-left: 5px;
+            transition: transform 0.2s ease, background 0.3s ease;
+        }
+        .algorithm button:hover {
+            transform: scale(1.1);
+            background: linear-gradient(45deg, #1f6feb, #58a6ff);
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>Learning Time</h1>
+    <i class="fas fa-bars menu-icon" onclick="toggleMenu()"></i>
+    <nav id="navMenu">
+        <a href="#">Home</a>
+        <a href="#courses">Course</a>
+        <a href="#">Blog</a>
+        <a href="#">About</a>
+    </nav>
+</header>
+
+<!-- Search and Filter -->
+<div class="search-filter">
+    <input type="text" id="searchBox" placeholder="Search algorithms...">
+    <select id="filterCategory">
+        <option value="all">All Categories</option>
+        <option value="sorting">Sorting</option>
+        <option value="tree">Tree</option>
+        <option value="graph">Graph</option>
+        <option value="queue">Queue</option>
+        <option value="linkedlist">Linked List</option>
+        <option value="stack">Stack</option>
+        <option value="hashing">Hashing</option>
+    </select>
+</div>
+
+<!-- Courses -->
+<section id="courses" class="courses">
+    <div class="course-card" onclick="toggleAlgorithms()">
+        <h3>DSA</h3>
+        <div class="algorithm-list" id="dsaList">
+            <div class="algorithm" data-category="sorting">
+                <span>Bubble Sort</span>
+                <div>
+                    <button>View Theory</button>
+                    <button onclick="location.href='bubble_sort.html'">Visualize</button>
+                </div>
+            </div>
+            <div class="algorithm" data-category="sorting">
+                <span>Quick Sort</span>
+                <div>
+                    <button>View Theory</button>
+                    <button onclick="location.href='quick_sort.html'">Visualize</button>
+                </div>
+            </div>
+            <div class="algorithm" data-category="sorting">
+                <span>Merge Sort</span>
+                <div>
+                    <button>View Theory</button>
+                    <button onclick="location.href='mergr_short.html'">Visualize</button>
+                </div>
+            </div>
+            <div class="algorithm" data-category="sorting">
+                <span>Heap Sort</span>
+                <div>
+                    <button>View Theory</button>
+                    <button onclick="location.href='heap_sort.html'">Visualize</button>
+                </div>
+            </div>
+            <div class="algorithm" data-category="sorting">
+                <span>Insertion Sort</span>
+                <div>
+                    <button>View Theory</button>
+                    <button onclick="location.href='insertion_short.html'">Visualize</button>
+                </div>
+            </div>
+            <div class="algorithm" data-category="sorting">
+                <span>Selection Sort</span>
+                <div>
+                    <button>View Theory</button>
+                    <button onclick="location.href='selection_short.html'">Visualize</button>
+                </div>
+            </div>
+            <div class="algorithm" data-category="sorting">
+                <span>Shell Sort</span>
+                <div>
+                    <button>View Theory</button>
+                    <button onclick="location.href='shell_sort.html'">Visualize</button>
+                </div>
+            </div>
+            <div class="algorithm" data-category="tree">
+                <span>B-Tree</span>
+                <div>
+                    <button>View Theory</button>
+                    <button onclick="location.href='b_tree.html'">Visualize</button>
+                </div>
+            </div>
+            <div class="algorithm" data-category="tree">
+                <span>Binary Search Tree</span>
+                <div>
+                    <button>View Theory</button>
+                    <button onclick="location.href='binary_search_tree.html'">Visualize</button>
+                </div>
+            </div>
+            <div class="algorithm" data-category="graph">
+                <span>Dijkstra's Algorithm</span>
+                <div>
+                    <button>View Theory</button>
+                    <button onclick="location.href='dijkstra_algo.html'">Visualize</button>
+                </div>
+            </div>
+            <div class="algorithm" data-category="queue">
+                <span>Circular Queue</span>
+                <div>
+                    <button>View Theory</button>
+                    <button onclick="location.href='circular_queue.html'">Visualize</button>
+                </div>
+            </div>
+            <div class="algorithm" data-category="queue">
+                <span>Queue</span>
+                <div>
+                    <button>View Theory</button>
+                    <button onclick="location.href='queue.html'">Visualize</button>
+                </div>
+            </div>
+            <div class="algorithm" data-category="linkedlist">
+                <span>Linked List</span>
+                <div>
+                    <button>View Theory</button>
+                    <button onclick="location.href='link_list.html'">Visualize</button>
+                </div>
+            </div>
+            <div class="algorithm" data-category="linkedlist">
+                <span>Circular Linked List</span>
+                <div>
+                    <button>View Theory</button>
+                    <button onclick="location.href='circular_link_list.html'">Visualize</button>
+                </div>
+            </div>
+            <div class="algorithm" data-category="stack">
+                <span>Stack</span>
+                <div>
+                    <button>View Theory</button>
+                    <button onclick="location.href='stack.html'">Visualize</button>
+                </div>
+            </div>
+            <div class="algorithm" data-category="hashing">
+                <span>Hashing</span>
+                <div>
+                    <button>View Theory</button>
+                    <button onclick="location.href='hasing.html'">Visualize</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<script>
+    function toggleMenu() {
+        document.getElementById('navMenu').classList.toggle('show');
+    }
+    function toggleAlgorithms() {
+        document.getElementById('dsaList').classList.toggle('open');
+    }
+    document.getElementById('searchBox').addEventListener('input', function() {
+        let searchValue = this.value.toLowerCase();
+        document.querySelectorAll('.algorithm').forEach(function(item) {
+            let text = item.querySelector('span').textContent.toLowerCase();
+            item.style.display = text.includes(searchValue) ? 'flex' : 'none';
+        });
+    });
+    document.getElementById('filterCategory').addEventListener('change', function() {
+        let category = this.value;
+        document.querySelectorAll('.algorithm').forEach(function(item) {
+            if (category === 'all' || item.getAttribute('data-category') === category) {
+                item.style.display = 'flex';
+            } else {
+                item.style.display = 'none';
+            }
+        });
+    });
+</script>
+
+</body>
+</html>

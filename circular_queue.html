@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Circular Queue Visualizer</title>
+<style>
+:root {
+  --primary: #3498db;
+  --secondary: #2ecc71;
+  --danger: #e74c3c;
+  --bg: #1e1e2f;
+}
+body {
+  background: var(--bg);
+  color: white;
+  font-family: Arial, sans-serif;
+  text-align: center;
+  padding: 20px;
+}
+h1 {
+  color: var(--primary);
+}
+.queue-container {
+  display: flex;
+  justify-content: center;
+  margin: 20px 0;
+}
+.slot {
+  width: 60px;
+  height: 60px;
+  border: 2px solid var(--primary);
+  margin: 5px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+.plate {
+  background: var(--secondary);
+  width: 80%;
+  height: 80%;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: enter 0.4s ease;
+}
+.empty {
+  background: transparent;
+}
+@keyframes enter {
+  from { transform: translateY(-30px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+.exit-to-left {
+  animation: exit 0.4s forwards;
+}
+@keyframes exit {
+  to { transform: translateY(-30px); opacity: 0; }
+}
+.marker {
+  position: absolute;
+  top: -25px;
+  font-size: 12px;
+  color: yellow;
+}
+.controls {
+  margin: 20px 0;
+}
+input[type="text"] {
+  padding: 8px 12px;
+  font-size: 16px;
+  border: 2px solid var(--primary);
+  border-radius: 6px;
+  outline: none;
+  background-color: rgba(255, 255, 255, 0.1);
+  color: white;
+  margin-right: 10px;
+  transition: border-color 0.3s, background-color 0.3s;
+}
+input[type="text"]:focus {
+  border-color: var(--secondary);
+  background-color: rgba(255, 255, 255, 0.2);
+}
+button {
+  padding: 8px 16px;
+  font-size: 16px;
+  border: none;
+  border-radius: 6px;
+  background: var(--primary);
+  color: white;
+  cursor: pointer;
+  margin: 0 5px;
+  transition: background 0.3s;
+}
+button:hover {
+  background: var(--secondary);
+}
+.message {
+  margin-top: 10px;
+  min-height: 20px;
+}
+</style>
+</head>
+<body>
+
+<h1>Circular Queue Visualizer</h1>
+
+<div class="controls">
+  <input type="text" id="valueInput" placeholder="Enter value">
+  <button onclick="enqueue()">Enqueue</button>
+  <button onclick="dequeue()">Dequeue</button>
+</div>
+
+<div class="queue-container" id="slotsContainer"></div>
+
+<div class="message" id="msg"></div>
+
+<script>
+const size = 7;
+let queue = new Array(size).fill(null);
+let front = -1, rear = -1;
+
+// Auto-increment default value generator
+let defaultCharCode = 65; // 'A'
+function getNextDefaultValue() {
+  const val = String.fromCharCode(defaultCharCode);
+  defaultCharCode++;
+  if (defaultCharCode > 90) defaultCharCode = 65; // Loop A-Z
+  return val;
+}
+document.getElementById('valueInput').value = getNextDefaultValue();
+
+// Render queue slots
+const slotsContainer = document.getElementById('slotsContainer');
+for (let i = 0; i < size; i++) {
+  const slot = document.createElement('div');
+  slot.className = 'slot empty';
+  slot.dataset.index = i;
+  slotsContainer.appendChild(slot);
+}
+
+function updateMarkers() {
+  document.querySelectorAll('.marker').forEach(m => m.remove());
+  if (front !== -1) {
+    const frontMarker = document.createElement('div');
+    frontMarker.className = 'marker';
+    frontMarker.textContent = 'Front';
+    slotsContainer.children[front].appendChild(frontMarker);
+  }
+  if (rear !== -1) {
+    const rearMarker = document.createElement('div');
+    rearMarker.className = 'marker';
+    rearMarker.textContent = 'Rear';
+    slotsContainer.children[rear].appendChild(rearMarker);
+  }
+}
+
+async function enqueue() {
+  const msg = document.getElementById('msg');
+  const valInput = document.getElementById('valueInput');
+  let val = valInput.value.trim();
+  if (!val) {
+    msg.textContent = 'Please enter a value.';
+    msg.style.color = 'var(--danger)';
+    return;
+  }
+  msg.style.color = '';
+
+  // Overflow check
+  if ((front === 0 && rear === size - 1) || (rear + 1) % size === front) {
+    msg.textContent = 'Overflow — queue is full!';
+    msg.style.color = 'var(--danger)';
+    return;
+  }
+
+  // If empty
+  if (front === -1) {
+    front = rear = 0;
+  } else {
+    rear = (rear + 1) % size;
+  }
+
+  queue[rear] = val;
+  const slotEl = slotsContainer.children[rear];
+  slotEl.classList.remove('empty');
+
+  const plate = document.createElement('div');
+  plate.className = 'plate';
+  plate.textContent = val;
+  slotEl.appendChild(plate);
+
+  updateMarkers();
+
+  // Prepare next default value
+  valInput.value = getNextDefaultValue();
+}
+
+async function dequeue() {
+  const msg = document.getElementById('msg');
+
+  if (front === -1 && rear === -1) {
+    msg.textContent = 'Underflow — queue is empty!';
+    msg.style.color = 'var(--danger)';
+    return;
+  }
+
+  const oldFront = front;
+  const slotEl = slotsContainer.children[oldFront];
+  const plate = slotEl.querySelector('.plate');
+  const val = queue[oldFront];
+
+  if (plate) {
+    plate.classList.add('exit-to-left');
+    await new Promise(r => setTimeout(r, 400));
+    if (slotEl.contains(plate)) slotEl.removeChild(plate);
+  }
+
+  queue[oldFront] = null;
+  slotEl.classList.add('empty');
+
+  if (front === rear) {
+    front = rear = -1;
+  } else {
+    front = (oldFront + 1) % size;
+  }
+
+  updateMarkers();
+
+  msg.textContent = `Dequeued "${val}"`;
+  msg.style.color = '';
+}
+</script>
+
+</body>
+</html>

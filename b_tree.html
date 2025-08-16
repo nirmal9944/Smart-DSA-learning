@@ -1,0 +1,570 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>B-Tree Visualizer</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg1:#071124; --bg2:#041023;
+    --panel: rgba(255,255,255,0.02);
+    --muted:#9fb0c8; --accent:#7c3aed; --accent2:#06b6d4;
+    --ok:#10b981; --danger:#ef4444;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100vh;font-family:Inter,system-ui,Segoe UI,Roboto,Arial;color:#e6eef8;
+    background: radial-gradient(1200px 600px at 10% 10%, rgba(124,58,237,0.06), transparent),
+                linear-gradient(180deg,var(--bg1),var(--bg2));
+    -webkit-font-smoothing:antialiased;padding:20px;}
+  .app{max-width:1200px;margin:0 auto}
+  header{display:flex;justify-content:space-between;align-items:center;gap:12px}
+  h1{margin:0;font-size:20px}
+  p.lead{margin:6px 0 0;color:var(--muted);font-size:13px}
+  .layout{display:grid;grid-template-columns:360px 1fr;gap:18px;margin-top:18px}
+  .card{background:var(--panel);padding:14px;border-radius:12px;border:1px solid rgba(255,255,255,0.03)}
+  label{font-size:13px;color:var(--muted);display:block;margin-bottom:8px}
+  input[type="number"], input[type="text"], select{width:100%;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:inherit}
+  .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .btn{padding:10px 12px;border-radius:8px;border:none;background:linear-gradient(90deg,var(--accent), #5b21b6);color:white;cursor:pointer;font-weight:700}
+  .btn.secondary{background:transparent;border:1px solid rgba(255,255,255,0.06);box-shadow:none}
+  .small{padding:8px 10px;font-size:14px}
+  .svgWrap{background:transparent;border-radius:12px;padding:8px}
+  svg{width:100%;height:560px;display:block}
+  /* node visuals */
+  .bnode { transition: transform 450ms cubic-bezier(.2,.9,.3,1); }
+  .bnode rect { rx:10; ry:10; fill: url(#g1); stroke: rgba(0,0,0,0.25); filter: drop-shadow(0 12px 24px rgba(2,6,23,0.45)); }
+  .bnode .keytext{ font-weight:700; font-size:13px; fill:#02121b; text-anchor:middle; }
+  .bnode .addr{ font-size:10px; fill:rgba(0,0,0,0.6); text-anchor:middle; }
+  .edge{ stroke: rgba(255,255,255,0.12); stroke-width:2.2; transition:stroke 200ms; }
+  .edge.highlight{ stroke: #ffd166; stroke-width:3; }
+  .bnode.highlight rect{ stroke:#ffd166; stroke-width:2.4; }
+  .status{ color:var(--muted); margin-top:8px; min-height:20px; }
+  .explain{margin-top:12px;color:var(--muted);min-height:46px}
+  @media(max-width:980px){ .layout{grid-template-columns:1fr} svg{height:760px} }
+  /* split promo animation */
+  .promoVal { position:absolute; pointer-events:none; padding:6px 10px; border-radius:8px; background:linear-gradient(180deg,#ffd166,#f7c95c); color:#02121b; font-weight:800; transform-origin:center; transition: transform 520ms, opacity 240ms;}
+</style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <div>
+        <h1>B-Tree Visualizer</h1>
+        <p class="lead">Minimum degree t (node max keys = 2·t−1). Insert, Search, Traversal. Visual split animation included.</p>
+      </div>
+      <div class="card" style="padding:8px 12px">
+        <div style="font-weight:700">Interactive</div>
+      </div>
+    </header>
+
+    <div class="layout">
+      <div class="card">
+        <label>Minimum degree t</label>
+        <div class="row">
+          <select id="degree">
+            <option value="2">2 (2-3-4 style)</option>
+            <option value="3">3</option>
+            <option value="4">4</option>
+          </select>
+        </div>
+
+        <div style="margin-top:12px">
+          <label>Insert key</label>
+          <div class="row">
+            <input id="insVal" type="number" placeholder="e.g. 42" />
+            <button id="insBtn" class="btn small">Insert</button>
+            <button id="stepIns" class="btn secondary small">Step Insert</button>
+          </div>
+        </div>
+
+        <div style="margin-top:12px">
+          <label>Delete key (simple leaf-case)</label>
+          <div class="row">
+            <input id="delVal" type="number" placeholder="value to delete" />
+            <button id="delBtn" class="btn small">Delete</button>
+          </div>
+        </div>
+
+        <div style="margin-top:12px">
+          <label>Search</label>
+          <div class="row">
+            <input id="searchVal" type="number" placeholder="search value" />
+            <button id="searchBtn" class="btn small">Search</button>
+            <button id="clearHighlights" class="btn secondary small">Clear</button>
+          </div>
+        </div>
+
+        <div style="margin-top:12px" class="row">
+          <button id="traverseBtn" class="btn small">In-order Traversal</button>
+          <button id="clearBtn" class="btn secondary small">Clear Tree</button>
+        </div>
+
+        <div class="status" id="status">Status: ready</div>
+        <div class="explain card" id="explain">Steps and algorithm explanations appear here.</div>
+      </div>
+
+      <div class="card svgWrap">
+        <div style="position:relative">
+          <svg id="svg" viewBox="0 0 1200 560" preserveAspectRatio="xMinYMin meet">
+            <defs>
+              <linearGradient id="g1" x1="0" x2="0" y1="0" y2="1">
+                <stop offset="0%" stop-color="#7dd3fc"/>
+                <stop offset="100%" stop-color="#06b6d4"/>
+              </linearGradient>
+            </defs>
+            <!-- edges and nodes get injected -->
+          </svg>
+
+          <!-- floating promo element for split animation -->
+          <div id="promo" class="promoVal" style="display:none"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+/*
+B-Tree visualizer (insert, search, traversal)
+Using minimum degree t:
+  - maxKeys = 2*t - 1
+  - minKeys = t - 1 (except root can have fewer)
+This implementation:
+  - Fully implements insertion (including splitChild)
+  - Search and in-order traversal
+  - Simple deletion: only removes from leaf nodes (complex deletion cases require borrow/merge; can be added)
+  - Visual split animation when a child splits and a middle key is promoted
+*/
+
+// ---------- B-Tree data structure ----------
+class BNode {
+  constructor(t, leaf=false){
+    this.t = t;
+    this.keys = [];      // sorted keys array
+    this.children = [];  // child pointers (BNode)
+    this.leaf = leaf;
+    this.addr = BTree.nextAddr++; // simulated address
+    // rendering coordinates
+    this.x = 0; this.y = 0;
+    this.g = null;
+  }
+
+  isFull(){ return this.keys.length === 2*this.t - 1; }
+}
+
+class BTree {
+  constructor(t){
+    this.t = t;
+    this.root = new BNode(t, true);
+  }
+
+  search(node, key){
+    if(!node) return null;
+    let i = 0;
+    while(i < node.keys.length && key > node.keys[i]) i++;
+    if(i < node.keys.length && node.keys[i] === key) return {node, index:i};
+    if(node.leaf) return null;
+    return this.search(node.children[i], key);
+  }
+
+  // insert key (standard CLRS)
+  insert(key, onSplitPromotion=null){
+    const r = this.root;
+    if(r.isFull()){
+      const s = new BNode(this.t, false);
+      s.children[0] = r;
+      this.root = s;
+      // split child 0 of s
+      this.splitChild(s, 0, onSplitPromotion);
+      this._insertNonFull(s, key, onSplitPromotion);
+    } else {
+      this._insertNonFull(r, key, onSplitPromotion);
+    }
+  }
+
+  _insertNonFull(x, key, onSplitPromotion){
+    let i = x.keys.length - 1;
+    if(x.leaf){
+      // insert into keys
+      while(i >=0 && key < x.keys[i]) { i--; }
+      x.keys.splice(i+1, 0, key);
+    } else {
+      while(i >=0 && key < x.keys[i]) i--;
+      i++;
+      if(x.children[i].isFull()){
+        this.splitChild(x, i, onSplitPromotion);
+        if(key > x.keys[i]) i++;
+      }
+      this._insertNonFull(x.children[i], key, onSplitPromotion);
+    }
+  }
+
+  // split child y = x.children[i] which is full
+  splitChild(x, i, onSplitPromotion){
+    const t = this.t;
+    const y = x.children[i];
+    const z = new BNode(t, y.leaf);
+    // z will have t-1 keys: y.keys[t ... 2t-2]
+    z.keys = y.keys.slice(t);
+    // if not leaf, transfer children
+    if(!y.leaf){
+      z.children = y.children.slice(t);
+    }
+    // median key to promote
+    const midKey = y.keys[t-1];
+    // shrink y
+    y.keys = y.keys.slice(0, t-1);
+    if(!y.leaf) y.children = y.children.slice(0, t);
+
+    // insert z into x.children
+    x.children.splice(i+1, 0, z);
+    // insert midKey into x.keys at position i
+    x.keys.splice(i, 0, midKey);
+
+    // callback for visualization (promote animation)
+    if(onSplitPromotion) onSplitPromotion({parent:x, left:y, promo:midKey, right:z, index:i+1});
+  }
+
+  // In-order traversal (returns keys)
+  inorder(node, out=[]){
+    if(!node) return out;
+    for(let i=0;i<node.keys.length;i++){
+      if(!node.leaf) this.inorder(node.children[i], out);
+      out.push(node.keys[i]);
+    }
+    if(!node.leaf) this.inorder(node.children[node.keys.length], out);
+    return out;
+  }
+
+  // delete simple: remove key only if in leaf. For other cases show message.
+  deleteSimple(key){
+    const found = this.search(this.root, key);
+    if(!found) return {ok:false, msg:'Key not found'};
+    const node = found.node, idx = found.index;
+    if(!node.leaf) return {ok:false, msg:'Deletion of internal nodes (borrow/merge) not implemented in this demo'};
+    node.keys.splice(idx,1);
+    return {ok:true, msg:'Deleted from leaf'};
+  }
+}
+BTree.nextAddr = 1000;
+
+// ---------- Visualization helpers ----------
+const svg = document.getElementById('svg');
+const promoDiv = document.getElementById('promo');
+const explain = document.getElementById('explain');
+const statusEl = document.getElementById('status');
+
+let tree = new BTree(2);
+let animQueue = []; // sequence of actions for step visuals
+let animIndex = -1;
+
+// layout positions for nodes: simple level-order spacing
+function computeLayout(){
+  if(!tree.root) return;
+  const levels = [];
+  function traverse(n, depth){
+    if(!levels[depth]) levels[depth]=[];
+    levels[depth].push(n);
+    if(!n.leaf){
+      for(let c of n.children) if(c) traverse(c, depth+1);
+    }
+  }
+  traverse(tree.root,0);
+  const svgW = 1100;
+  const levelGapY = 110;
+  for(let depth=0; depth<levels.length; depth++){
+    const row = levels[depth];
+    const count = row.length;
+    const spacing = Math.max(160, svgW / (count+1));
+    for(let i=0;i<count;i++){
+      row[i].x = 50 + spacing*(i+1);
+      row[i].y = 50 + depth*levelGapY;
+    }
+  }
+}
+
+// draw nodes & edges
+function render(){
+  while(svg.lastChild) svg.removeChild(svg.lastChild);
+  // defs again
+  const defs = document.createElementNS('http://www.w3.org/2000/svg','defs');
+  defs.innerHTML = `<linearGradient id="g1" x1="0" x2="0" y1="0" y2="1">
+    <stop offset="0%" stop-color="#7dd3fc"/><stop offset="100%" stop-color="#06b6d4"/></linearGradient>`;
+  svg.appendChild(defs);
+
+  if(!tree.root) return;
+
+  computeLayout();
+
+  // draw edges linearly from parent to child center
+  function drawEdges(n){
+    if(!n || n.leaf) return;
+    for(let i=0;i<n.children.length;i++){
+      const c = n.children[i];
+      if(!c) continue;
+      const line = document.createElementNS('http://www.w3.org/2000/svg','line');
+      line.setAttribute('x1', n.x);
+      line.setAttribute('y1', n.y + 26);
+      line.setAttribute('x2', c.x);
+      line.setAttribute('y2', c.y - 18);
+      line.setAttribute('class','edge');
+      svg.appendChild(line);
+      drawEdges(c);
+    }
+  }
+  drawEdges(tree.root);
+
+  // draw node groups
+  function drawNode(n){
+    const g = document.createElementNS('http://www.w3.org/2000/svg','g');
+    g.setAttribute('class','bnode');
+    // position via transform so CSS transitions animate
+    g.style.transform = `translate(${n.x}px, ${n.y}px)`;
+    // width depends on key count
+    const keyCount = Math.max(1, n.keys.length);
+    const w = keyCount * 44 + 8; // cell width ~44
+    const h = 36;
+    // rect background
+    const rect = document.createElementNS('http://www.w3.org/2000/svg','rect');
+    rect.setAttribute('x', -w/2);
+    rect.setAttribute('y', -h/2);
+    rect.setAttribute('width', w);
+    rect.setAttribute('height', h);
+    rect.setAttribute('rx', 10);
+    rect.setAttribute('class','bnode-rect');
+    g.appendChild(rect);
+
+    // draw vertical separators and key text
+    for(let k=0;k<keyCount;k++){
+      const cx = -w/2 + 4 + k*44 + 22; // center x for key cell
+      if(k < n.keys.length){
+        const text = document.createElementNS('http://www.w3.org/2000/svg','text');
+        text.setAttribute('x', cx);
+        text.setAttribute('y', 6);
+        text.setAttribute('class','keytext');
+        text.textContent = n.keys[k];
+        g.appendChild(text);
+      } else {
+        // empty slot (no drawing)
+      }
+    }
+    // address small text below
+    const addr = document.createElementNS('http://www.w3.org/2000/svg','text');
+    addr.setAttribute('x', 0); addr.setAttribute('y', 20);
+    addr.setAttribute('class','addr');
+    addr.textContent = `(${n.addr})`;
+    g.appendChild(addr);
+
+    svg.appendChild(g);
+    n.g = g;
+    if(!n.leaf){
+      for(let c of n.children) drawNode(c);
+    }
+  }
+  drawNode(tree.root);
+}
+
+// Helpers to animate split promotion
+function animatePromotion(parent, left, promoKey, right, callback){
+  // parent, left, right are node objects (already in data structure)
+  // show a floating promoVal from left->parent (center)
+  render(); // ensure positions are up to date
+  const svgRect = svg.getBoundingClientRect();
+  const leftRect = left.g.getBoundingClientRect();
+  const parentRect = parent.g.getBoundingClientRect();
+  promoDiv.style.display = 'block';
+  promoDiv.textContent = promoKey;
+  promoDiv.style.left = (leftRect.left + leftRect.width/2 - svgRect.left - 24) + 'px';
+  promoDiv.style.top = (leftRect.top + leftRect.height/2 - svgRect.top - 16) + 'px';
+  promoDiv.style.opacity = '1';
+  promoDiv.style.transform = 'translate(0,0) scale(1)';
+  // move to parent center
+  setTimeout(()=>{
+    const dx = (parentRect.left - leftRect.left);
+    const dy = (parentRect.top - leftRect.top);
+    promoDiv.style.transform = `translate(${dx}px, ${dy}px) scale(1.1)`;
+  },20);
+  setTimeout(()=>{
+    promoDiv.style.opacity = '0';
+    setTimeout(()=>{ promoDiv.style.display='none'; promoDiv.style.transform=''; if(callback) callback(); }, 260);
+  },700);
+}
+
+// highlight search path
+function highlightSearchPath(path){
+  // clear all
+  const nodes = svg.querySelectorAll('.bnode');
+  nodes.forEach(n => n.classList.remove('highlight'));
+  // highlight path nodes
+  for(const n of path){
+    if(n.g) n.g.classList.add('highlight');
+  }
+}
+
+// Step system: for insertion we'll simulate the CLRS steps into an array of actions
+let steps = []; let stepPos = -1;
+
+function recordStep(s){
+  steps.push(s);
+}
+
+function resetSteps(){
+  steps = []; stepPos = -1;
+}
+
+// Build step-by-step insertion trace and perform with visualization callbacks
+function insertWithSteps(key){
+  resetSteps();
+  const t = tree.t;
+  // onSplitPromotion callback called by tree.splitChild
+  const onSplitPromotion = ({parent,left,promo,right,index})=>{
+    recordStep({type:'split', parent, left, promo, right, index});
+  };
+  // wrap insert to record comparisons + movements
+  function localInsert(x, k){
+    // Not reimplementing full step-recorded recursion; instead:
+    // CLRS splitChild calls were recorded via onSplitPromotion above.
+    // We record search path for highlight then call insert (which itself triggers splits)
+    const path = [];
+    let cur = tree.root;
+    // Traverse to leaf recording comparisons
+    while(true){
+      path.push(cur);
+      if(cur.leaf) break;
+      // find child index
+      let i=0; while(i<cur.keys.length && k > cur.keys[i]) i++;
+      cur = cur.children[i];
+    }
+    // record path
+    recordStep({type:'path', path});
+    // call actual tree.insert with split callback
+    tree.insert(k, onSplitPromotion);
+    // after insert record final state
+    recordStep({type:'done', info:`Inserted ${k}`});
+  }
+  localInsert(tree.root, key);
+  // start stepping
+  stepPos = -1;
+  playNextStep();
+}
+
+function playNextStep(){
+  if(stepPos + 1 >= steps.length) return;
+  stepPos++;
+  const s = steps[stepPos];
+  explain.textContent = s.type === 'path' ? `Traversing to leaf: ${s.path.map(n=> '['+n.keys.join(',')+']').join(' → ')}` :
+                       s.type === 'split' ? `Split child and promote ${s.promo} to parent node` :
+                       s.type === 'done' ? s.info : '';
+  if(s.type === 'path'){
+    highlightSearchPath(s.path);
+  } else if(s.type === 'split'){
+    // animate promotion then render afterward
+    animatePromotion(s.parent, s.left, s.promo, s.right, ()=>{
+      computeLayout(); render();
+    });
+  } else if(s.type === 'done'){
+    computeLayout(); render();
+  }
+}
+
+function playPrevStep(){
+  if(stepPos <= 0) return;
+  stepPos--;
+  // for simplicity, re-render tree to reflect state after stepPos (our demonstration records are not reversible)
+  // we will highlight previous path if available
+  const s = steps[stepPos];
+  if(s && s.type==='path'){ highlightSearchPath(s.path); explain.textContent='Step back: traversing'; }
+  else { highlightSearchPath([]); explain.textContent='Step back'; }
+}
+
+// ---------- UI wiring ----------
+const degreeSel = document.getElementById('degree');
+const insVal = document.getElementById('insVal');
+const insBtn = document.getElementById('insBtn');
+const stepIns = document.getElementById('stepIns');
+const delVal = document.getElementById('delVal');
+const delBtn = document.getElementById('delBtn');
+const searchVal = document.getElementById('searchVal');
+const searchBtn = document.getElementById('searchBtn');
+const traverseBtn = document.getElementById('traverseBtn');
+const clearBtn = document.getElementById('clearBtn');
+const clearHighlights = document.getElementById('clearHighlights');
+
+degreeSel.addEventListener('change', ()=>{
+  const t = Number(degreeSel.value);
+  tree = new BTree(t);
+  BTree.nextAddr = 1000;
+  computeLayout(); render();
+  explain.textContent = `Degree set to ${t}. Tree reset.`;
+});
+
+insBtn.addEventListener('click', ()=>{
+  const v = Number(insVal.value);
+  if(Number.isNaN(v)){ status('Enter a number to insert'); return; }
+  // prevent duplicates: search
+  if(tree.search(tree.root, v)){ status('Value already in tree'); return; }
+  insertWithSteps(v);
+  status(`Inserted ${v}`);
+});
+
+stepIns.addEventListener('click', ()=> playNextStep());
+playPrev = () => playPrevStep();
+
+delBtn.addEventListener('click', ()=>{
+  const v = Number(delVal.value);
+  if(Number.isNaN(v)){ status('Enter number to delete'); return; }
+  const res = tree.deleteSimple(v);
+  if(res.ok){
+    computeLayout(); render();
+    status(res.msg);
+  } else {
+    status(res.msg);
+  }
+});
+
+searchBtn.addEventListener('click', ()=>{
+  const v = Number(searchVal.value);
+  if(Number.isNaN(v)){ status('Enter number to search'); return; }
+  // perform search and gather path
+  const path = [];
+  function ssearch(n){
+    if(!n) return null;
+    path.push(n);
+    let i=0; while(i < n.keys.length && v > n.keys[i]) i++;
+    if(i < n.keys.length && v === n.keys[i]) return {node:n, index:i};
+    if(n.leaf) return null;
+    return ssearch(n.children[i]);
+  }
+  const found = ssearch(tree.root);
+  highlightSearchPath(path);
+  if(found) status(`Found ${v} in node @${found.node.addr}`); else status(`${v} not found`);
+  explain.textContent = `Search path: ${path.map(n=>'['+n.keys.join(',')+']').join(' → ')}`;
+});
+
+traverseBtn.addEventListener('click', ()=>{
+  const arr = tree.inorder(tree.root, []);
+  status('In-order: ' + (arr.length? arr.join(', '): 'empty'));
+  explain.textContent = 'In-order traversal (sorted keys)';
+});
+
+clearBtn.addEventListener('click', ()=>{
+  const t = Number(degreeSel.value);
+  tree = new BTree(t);
+  computeLayout(); render();
+  status('Tree cleared');
+  explain.textContent = '';
+});
+
+clearHighlights.addEventListener('click', ()=>{
+  const nodes = svg.querySelectorAll('.bnode'); nodes.forEach(n=> n.classList.remove('highlight'));
+  explain.textContent = 'Highlights cleared';
+});
+
+function status(t){ statusEl.textContent = 'Status: ' + t; }
+
+// initialize
+computeLayout(); render(); status('Ready — choose degree and insert keys (try 10, 20, 5, 6, 12, 30)');
+
+</script>
+</body>
+</html>

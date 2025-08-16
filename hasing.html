@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hashing Visualization - Chaining</title>
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        background: #1e1e2f;
+        color: white;
+        text-align: center;
+        padding: 20px;
+    }
+    h1 {
+        color: #4fc3f7;
+    }
+    .controls {
+        margin: 20px;
+    }
+    input, button {
+        padding: 8px 12px;
+        margin: 5px;
+        border-radius: 5px;
+        border: none;
+        font-size: 16px;
+    }
+    input {
+        width: 200px;
+    }
+    button {
+        background: #4fc3f7;
+        color: black;
+        cursor: pointer;
+        transition: 0.3s;
+    }
+    button:hover {
+        background: #0288d1;
+        color: white;
+    }
+    .hash-table {
+        display: flex;
+        justify-content: center;
+        margin-top: 30px;
+    }
+    .bucket {
+        border: 2px solid #4fc3f7;
+        margin: 5px;
+        padding: 5px;
+        min-width: 70px;
+        background: rgba(79, 195, 247, 0.1);
+        position: relative;
+        border-radius: 8px;
+    }
+    .bucket-index {
+        font-size: 14px;
+        color: #bbb;
+        margin-bottom: 5px;
+    }
+    .chain {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+    .node {
+        background: #ffca28;
+        color: black;
+        padding: 6px 12px;
+        margin: 3px;
+        border-radius: 5px;
+        min-width: 40px;
+        transition: transform 0.5s ease, opacity 0.5s ease;
+    }
+    .highlight {
+        background: #81c784 !important;
+        transform: scale(1.1);
+    }
+    .remove {
+        opacity: 0;
+        transform: scale(0);
+    }
+    .status {
+        margin-top: 20px;
+        font-size: 18px;
+        color: #fbc02d;
+    }
+</style>
+</head>
+<body>
+
+<h1>Hashing Visualization (Chaining)</h1>
+
+<div class="controls">
+    <input type="number" id="keyInput" placeholder="Enter a number">
+    <button onclick="insertKey()">Insert</button>
+    <button onclick="searchKey()">Search</button>
+    <button onclick="deleteKey()">Delete</button>
+</div>
+
+<div class="hash-table" id="hashTable"></div>
+
+<div class="status" id="statusMsg">Ready</div>
+
+<script>
+const TABLE_SIZE = 7;
+let hashTable = Array.from({ length: TABLE_SIZE }, () => []);
+
+const hashFunction = (key) => key % TABLE_SIZE;
+
+function renderTable(highlightIndex = -1, highlightValue = null) {
+    const tableDiv = document.getElementById("hashTable");
+    tableDiv.innerHTML = "";
+
+    hashTable.forEach((bucket, index) => {
+        const bucketDiv = document.createElement("div");
+        bucketDiv.className = "bucket";
+
+        const indexLabel = document.createElement("div");
+        indexLabel.className = "bucket-index";
+        indexLabel.innerText = `Index ${index}`;
+        bucketDiv.appendChild(indexLabel);
+
+        const chainDiv = document.createElement("div");
+        chainDiv.className = "chain";
+
+        bucket.forEach(value => {
+            const nodeDiv = document.createElement("div");
+            nodeDiv.className = "node";
+            nodeDiv.innerText = value;
+            if (highlightIndex === index && highlightValue === value) {
+                nodeDiv.classList.add("highlight");
+            }
+            chainDiv.appendChild(nodeDiv);
+        });
+
+        bucketDiv.appendChild(chainDiv);
+        tableDiv.appendChild(bucketDiv);
+    });
+}
+
+async function insertKey() {
+    const key = parseInt(document.getElementById("keyInput").value);
+    if (isNaN(key)) return setStatus("Please enter a valid number", "red");
+
+    const index = hashFunction(key);
+    setStatus(`Hash(${key}) = ${index} → Inserting...`, "lightblue");
+
+    hashTable[index].push(key);
+    renderTable(index, key);
+}
+
+async function searchKey() {
+    const key = parseInt(document.getElementById("keyInput").value);
+    if (isNaN(key)) return setStatus("Please enter a valid number", "red");
+
+    const index = hashFunction(key);
+    const found = hashTable[index].includes(key);
+
+    if (found) {
+        setStatus(`Found ${key} at index ${index}`, "lightgreen");
+        renderTable(index, key);
+    } else {
+        setStatus(`${key} not found in table`, "orange");
+        renderTable();
+    }
+}
+
+async function deleteKey() {
+    const key = parseInt(document.getElementById("keyInput").value);
+    if (isNaN(key)) return setStatus("Please enter a valid number", "red");
+
+    const index = hashFunction(key);
+    const pos = hashTable[index].indexOf(key);
+
+    if (pos !== -1) {
+        hashTable[index].splice(pos, 1);
+        setStatus(`Deleted ${key} from index ${index}`, "pink");
+        renderTable(index);
+    } else {
+        setStatus(`${key} not found to delete`, "orange");
+    }
+}
+
+function setStatus(msg, color) {
+    const status = document.getElementById("statusMsg");
+    status.textContent = msg;
+    status.style.color = color;
+}
+
+renderTable();
+</script>
+
+</body>
+</html>

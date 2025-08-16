@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Singly Linked List Visualizer</title>
+<style>
+  body {
+    background: linear-gradient(120deg, #0f2027, #203a43, #2c5364);
+    font-family: 'Segoe UI', sans-serif;
+    color: white;
+    text-align: center;
+    padding: 20px;
+  }
+  h1 {
+    margin-bottom: 10px;
+    font-size: 2rem;
+    color: #00ffcc;
+    text-shadow: 0 0 8px #00ffcc;
+  }
+  .controls {
+    margin-bottom: 20px;
+  }
+  input, button {
+    padding: 10px 14px;
+    font-size: 16px;
+    border-radius: 6px;
+    border: none;
+    margin: 4px;
+  }
+  input {
+    background-color: rgba(255,255,255,0.1);
+    border: 2px solid #00bfa5;
+    color: white;
+    width: 160px;
+  }
+  input:focus {
+    outline: none;
+    border-color: #00ffcc;
+  }
+  button {
+    background: linear-gradient(45deg, #00bfa5, #4cafef);
+    color: white;
+    cursor: pointer;
+    transition: transform 0.2s ease;
+  }
+  button:hover {
+    transform: scale(1.05);
+  }
+  .list-container {
+    display: flex;
+    align-items: center;
+    overflow-x: auto;
+    padding: 20px;
+    background-color: rgba(255,255,255,0.05);
+    border-radius: 10px;
+    min-height: 180px;
+    justify-content: flex-start;
+  }
+  .node {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    animation: fadeIn 0.4s ease-in;
+    margin-right: 20px;
+  }
+  .memory-block {
+    display: flex;
+    border: 2px solid #00ffcc;
+    border-radius: 8px;
+    overflow: hidden;
+    background-color: #1b2a33;
+  }
+  .cell {
+    padding: 15px;
+    min-width: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+  }
+  .data-cell {
+    background-color: #00796b;
+    font-weight: bold;
+  }
+  .pointer-cell {
+    background-color: #004d40;
+    font-size: 12px;
+    color: #00ffcc;
+  }
+  .address-label {
+    font-size: 12px;
+    color: #ffcc00;
+    margin-top: 5px;
+  }
+  .arrow {
+    width: 50px;
+    height: 2px;
+    background: white;
+    position: relative;
+    margin: 0 10px;
+  }
+  .arrow::after {
+    content: '';
+    position: absolute;
+    right: 0;
+    top: -4px;
+    border-top: 5px solid transparent;
+    border-bottom: 5px solid transparent;
+    border-left: 10px solid white;
+  }
+  .null-node {
+    background-color: #ff5555;
+    padding: 12px 20px;
+    border-radius: 6px;
+    font-weight: bold;
+    color: white;
+  }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes fadeOut {
+    from { opacity: 1; transform: scale(1); }
+    to { opacity: 0; transform: scale(0.8); }
+  }
+</style>
+</head>
+<body>
+
+<h1>Singly Linked List Visualizer</h1>
+
+<div class="controls">
+  <input type="text" id="nodeValue" placeholder="Enter value" value="A">
+  <button onclick="addNode()">Add Node</button>
+  <button onclick="removeHead()">Remove Head</button>
+  <button onclick="removeTail()">Remove Tail</button>
+  <button onclick="removeByValue()">Remove by Value</button>
+</div>
+
+<div class="list-container" id="listContainer"></div>
+
+<script>
+let list = [];
+let nextAddress = 1000; // starting memory address
+
+function addNode() {
+  const valInput = document.getElementById('nodeValue');
+  const value = valInput.value.trim();
+  if (!value) return;
+
+  const address = nextAddress;
+  nextAddress += 4; // mimic memory allocation
+
+  list.push({ value, address });
+  renderList();
+
+  valInput.value = String.fromCharCode(valInput.value.charCodeAt(0) + 1);
+}
+
+function removeHead() {
+  if (list.length === 0) return alert("List is empty!");
+  list.shift();
+  renderList();
+}
+
+function removeTail() {
+  if (list.length === 0) return alert("List is empty!");
+  list.pop();
+  renderList();
+}
+
+function removeByValue() {
+  const val = prompt("Enter value to remove:");
+  if (!val) return;
+  const index = list.findIndex(node => node.value === val);
+  if (index === -1) {
+    alert("Value not found!");
+    return;
+  }
+  list.splice(index, 1);
+  renderList();
+}
+
+function renderList() {
+  const container = document.getElementById('listContainer');
+  container.innerHTML = '';
+
+  list.forEach((node, index) => {
+    const nodeDiv = document.createElement('div');
+    nodeDiv.className = 'node';
+
+    const memBlock = document.createElement('div');
+    memBlock.className = 'memory-block';
+
+    const dataCell = document.createElement('div');
+    dataCell.className = 'cell data-cell';
+    dataCell.textContent = node.value;
+
+    const ptrCell = document.createElement('div');
+    ptrCell.className = 'cell pointer-cell';
+    ptrCell.textContent = list[index + 1]?.address || 'NULL';
+
+    memBlock.appendChild(dataCell);
+    memBlock.appendChild(ptrCell);
+
+    const addrLabel = document.createElement('div');
+    addrLabel.className = 'address-label';
+    addrLabel.textContent = `@${node.address}`;
+
+    nodeDiv.appendChild(memBlock);
+    nodeDiv.appendChild(addrLabel);
+
+    container.appendChild(nodeDiv);
+
+    if (index < list.length - 1) {
+      const arrowDiv = document.createElement('div');
+      arrowDiv.className = 'arrow';
+      container.appendChild(arrowDiv);
+    }
+  });
+
+  if (list.length > 0) {
+    const nullDiv = document.createElement('div');
+    nullDiv.className = 'null-node';
+    nullDiv.textContent = 'NULL';
+    container.appendChild(nullDiv);
+  }
+}
+</script>
+
+</body>
+</html>

@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Merge Sort Visualizer — Fixed</title>
+  <style>
+    :root{ --bg:#071024; --card:#0b1220; --muted:#9aa6b2; --accent:#7c3aed; }
+    *{box-sizing:border-box}
+    body{margin:0;min-height:100vh;font-family:Inter,system-ui,Segoe UI,Roboto,Arial;color:#e6eef8;background:linear-gradient(180deg,#071024,#021025);display:flex;align-items:center;justify-content:center;padding:20px}
+    .app{width:100%;max-width:980px;background:rgba(255,255,255,0.02);border-radius:12px;padding:18px;box-shadow:0 10px 30px rgba(2,6,23,0.7)}
+    header{display:flex;justify-content:space-between;align-items:center}
+    h1{font-size:18px;margin:0}
+    .lead{margin:0;color:var(--muted);font-size:13px}
+
+    .controls{display:flex;gap:12px;flex-wrap:wrap;margin-top:12px}
+    .card{background:rgba(255,255,255,0.01);padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,0.03)}
+    textarea{width:320px;min-height:56px;background:transparent;border:1px solid rgba(255,255,255,0.04);padding:8px;border-radius:8px;color:inherit}
+    .btn{background:linear-gradient(90deg,var(--accent),#5b21b6);border:none;padding:8px 12px;border-radius:8px;color:white;cursor:pointer}
+    .btn:disabled{opacity:0.5;cursor:not-allowed}
+
+    .bar-container{height:320px;border-radius:10px;padding:12px;background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.005));display:flex;align-items:flex-end;gap:6px;overflow:hidden;border:1px solid rgba(255,255,255,0.03);margin-top:12px}
+    .bar{flex:1 0 calc(100% / 12 - 6px);background:linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));border-radius:6px 6px 3px 3px;display:flex;align-items:flex-end;justify-content:center;position:relative;min-width:18px;max-width:100px;transition:height 200ms ease, background-color 160ms ease}
+    .bar .value{padding:6px 6px;font-weight:600;font-size:12px;color:white}
+
+    .bar.highlight{background:linear-gradient(180deg,#f59e0b,#b45309)}
+    .bar.placing{background:linear-gradient(180deg,#10b981,#047857)}
+    .bar.sorted{background:linear-gradient(180deg,#06b6d4,#0ea5a6)}
+
+    .footer{display:flex;justify-content:space-between;align-items:center;margin-top:12px;color:var(--muted);font-size:13px}
+
+    @media (max-width:720px){ textarea{width:100%} .controls{flex-direction:column} .bar-container{height:240px} }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <div>
+        <h1>Merge Sort Visualizer — Fixed</h1>
+        <p class="lead">Shows divide &amp; conquer merging. Enter numbers (comma/space separated), or pick an example, then Generate → Start.</p>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:12px;color:var(--muted)">Algorithm</div>
+        <div style="font-weight:700">Merge Sort</div>
+      </div>
+    </header>
+
+    <div class="controls">
+      <div class="card" style="min-width:320px">
+        <label for="numbers">Input numbers (e.g. 38,27,43,3,9,82,10)</label>
+        <textarea id="numbers">38, 27, 43, 3, 9, 82, 10</textarea>
+        <div style="margin-top:8px;display:flex;gap:8px;align-items:center">
+          <button id="generateBtn" class="btn">Generate</button>
+          <button id="startBtn" class="btn">Start</button>
+          <button id="resetBtn" class="btn">Reset</button>
+          <select id="examples" style="margin-left:8px;padding:6px;border-radius:6px;background:transparent;border:1px solid rgba(255,255,255,0.04);color:var(--muted)">
+            <option value="">Examples...</option>
+            <option value="38,27,43,3,9,82,10">Classic</option>
+            <option value="5,3,8,4,2">Small</option>
+            <option value="1,2,3,4,5,6">Already sorted</option>
+            <option value="6,5,4,3,2,1">Reverse</option>
+            <option value="-5,-10,0,8,3,4">Negatives</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="card" style="min-width:240px;display:flex;flex-direction:column;gap:8px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <label style="min-width:60px">Speed</label>
+          <input id="speed" type="range" min="50" max="800" value="300" />
+          <span id="speedLabel">300 ms</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <label style="min-width:60px">Show Steps</label>
+          <input id="showSteps" type="checkbox" checked />
+        </div>
+        <div style="color:var(--muted);font-size:13px">Status: <span id="status">idle</span></div>
+      </div>
+
+      <div class="card" style="flex:1;min-width:220px">
+        <label>Details</label>
+        <div id="details" style="min-height:70px;color:var(--muted);">Ready — generate array.</div>
+      </div>
+    </div>
+
+    <div id="barContainer" class="bar-container" aria-hidden="false"></div>
+
+    <div class="footer">
+      <div id="finalOutput">Sorted: —</div>
+      <div style="color:var(--muted);font-size:13px">Tip: use small arrays (≤20) for clearer animation.</div>
+    </div>
+  </div>
+
+  <script>
+    // Merge Sort visualizer — fixed out-of-bounds highlighting by using absolute indices
+    const input = document.getElementById('numbers');
+    const generateBtn = document.getElementById('generateBtn');
+    const startBtn = document.getElementById('startBtn');
+    const resetBtn = document.getElementById('resetBtn');
+    const examples = document.getElementById('examples');
+    const speedInput = document.getElementById('speed');
+    const speedLabel = document.getElementById('speedLabel');
+    const showSteps = document.getElementById('showSteps');
+    const details = document.getElementById('details');
+    const status = document.getElementById('status');
+    const finalOutput = document.getElementById('finalOutput');
+    const container = document.getElementById('barContainer');
+
+    let originalArr = [];
+    let running = false;
+
+    function parseNumbers(text){
+      return text.trim().split(/[,\s]+/).map(s=>Number(s)).filter(n=>!Number.isNaN(n));
+    }
+
+    function createBars(arr, highlights = [], placingIndex = null, sortedRanges = []){
+      container.innerHTML = '';
+      if(!arr || arr.length === 0) return;
+      const min = Math.min(...arr);
+      const max = Math.max(...arr);
+      const range = (max - min) || 1;
+      arr.forEach((num, idx) => {
+        const bar = document.createElement('div');
+        bar.className = 'bar';
+        const height = 24 + Math.round(((num - min) / range) * 280); // 24px base to avoid tiny bars
+        bar.style.height = height + 'px';
+        const v = document.createElement('div');
+        v.className = 'value';
+        v.textContent = num;
+        bar.appendChild(v);
+        if(highlights.includes(idx)) bar.classList.add('highlight');
+        if(placingIndex === idx) bar.classList.add('placing');
+        if(sortedRanges.length){
+          // simple: if idx falls inside any sorted range, mark as sorted
+          for(const r of sortedRanges){
+            if(idx >= r[0] && idx < r[1]){ bar.classList.add('sorted'); break; }
+          }
+        }
+        container.appendChild(bar);
+      });
+    }
+
+    function delay(ms){ return new Promise(r => setTimeout(r, ms)); }
+
+    generateBtn.addEventListener('click', ()=>{
+      if(running) return;
+      originalArr = parseNumbers(input.value);
+      if(originalArr.length === 0){ details.textContent = 'No valid numbers found.'; return; }
+      if(originalArr.length > 60) details.textContent = 'Large arrays may be slow — consider smaller arrays for animation.';
+      createBars(originalArr);
+      details.textContent = `Array generated (${originalArr.length} items).`;
+      status.textContent = 'ready';
+      finalOutput.textContent = 'Sorted: —';
+    });
+
+    examples.addEventListener('change', ()=>{
+      if(!examples.value) return;
+      input.value = examples.value;
+      originalArr = parseNumbers(input.value);
+      createBars(originalArr);
+      details.textContent = `Loaded example (${originalArr.length} items).`;
+      status.textContent = 'ready';
+      finalOutput.textContent = 'Sorted: —';
+    });
+
+    resetBtn.addEventListener('click', ()=>{
+      if(running) return;
+      input.value = '';
+      originalArr = [];
+      container.innerHTML = '';
+      details.textContent = 'Reset.';
+      status.textContent = 'idle';
+      finalOutput.textContent = 'Sorted: —';
+    });
+
+    speedInput.addEventListener('input', ()=>{ speedLabel.textContent = speedInput.value + ' ms'; });
+
+    async function merge(start, mid, end){
+      // left: [start, mid), right: [mid, end)
+      let left = originalArr.slice(start, mid);
+      let right = originalArr.slice(mid, end);
+      let i = 0, j = 0, k = start;
+      const speed = Number(speedInput.value);
+
+      // While both arrays have elements, compare and write into originalArr
+      while(i < left.length && j < right.length){
+        // highlight the two elements being compared (absolute indices)
+        if(showSteps.checked) details.textContent = `Comparing index ${start + i} (value ${left[i]}) and ${mid + j} (value ${right[j]})`;
+        createBars(originalArr, [start + i, mid + j]);
+        await delay(speed);
+
+        if(left[i] <= right[j]){
+          originalArr[k] = left[i++];
+        } else {
+          originalArr[k] = right[j++];
+        }
+
+        // show placement at absolute index k
+        createBars(originalArr, [], k, [[start, end]]);
+        if(showSteps.checked) details.textContent = `Placed value at index ${k} (value ${originalArr[k]})`;
+        await delay(speed);
+        k++;
+      }
+
+      // remaining left
+      while(i < left.length){
+        originalArr[k] = left[i++];
+        createBars(originalArr, [], k, [[start, end]]);
+        if(showSteps.checked) details.textContent = `Copying remaining left to index ${k} (value ${originalArr[k]})`;
+        await delay(speed);
+        k++;
+      }
+
+      // remaining right
+      while(j < right.length){
+        originalArr[k] = right[j++];
+        createBars(originalArr, [], k, [[start, end]]);
+        if(showSteps.checked) details.textContent = `Copying remaining right to index ${k} (value ${originalArr[k]})`;
+        await delay(speed);
+        k++;
+      }
+
+      // after complete merge, mark the range as sorted for a moment
+      createBars(originalArr, [], null, [[start, end]]);
+      await delay(Math.max(80, Math.floor(Number(speedInput.value) / 2)));
+    }
+
+    async function mergeSort(start, end){
+      if(end - start <= 1) return;
+      const mid = Math.floor((start + end) / 2);
+      await mergeSort(start, mid);
+      await mergeSort(mid, end);
+      await merge(start, mid, end);
+    }
+
+    async function startSort(){
+      if(running) return;
+      if(!originalArr || originalArr.length === 0){ details.textContent = 'No array to sort. Click Generate or choose an example.'; return; }
+      if(originalArr.length > 200){ details.textContent = 'Array too large for animation — limit to ~200 items.'; return; }
+      running = true;
+      generateBtn.disabled = true; startBtn.disabled = true; resetBtn.disabled = true; examples.disabled = true;
+      status.textContent = 'sorting...';
+      details.textContent = 'Starting merge sort...';
+
+      await mergeSort(0, originalArr.length);
+
+      // final state
+      createBars(originalArr, [], null, [[0, originalArr.length]]);
+      finalOutput.textContent = 'Sorted: ' + originalArr.join(', ');
+      details.textContent = 'Sorting complete.';
+      status.textContent = 'done';
+      running = false;
+      generateBtn.disabled = false; startBtn.disabled = false; resetBtn.disabled = false; examples.disabled = false;
+    }
+
+    // wire up start button
+    startBtn.addEventListener('click', startSort);
+
+    // initialize sample
+    window.addEventListener('load', ()=>{
+      originalArr = parseNumbers(input.value);
+      if(originalArr.length) createBars(originalArr);
+    });
+  </script>
+</body>
+</html>

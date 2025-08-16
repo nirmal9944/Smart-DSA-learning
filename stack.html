@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stack Visualizer - Open Bucket</title>
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        background-color: #f2f2f2;
+        text-align: center;
+        padding: 20px;
+    }
+
+    h1 {
+        color: #333;
+    }
+
+    /* Bucket-like stack */
+    .stack-container {
+        display: flex;
+        flex-direction: column-reverse;
+        align-items: center;
+        justify-content: flex-start;
+        width: 200px;
+        height: 350px;
+        margin: 20px auto;
+        background: #fff;
+        overflow: hidden;
+        position: relative;
+        border-left: 8px solid #555;
+        border-right: 8px solid #555;
+        border-bottom: 8px solid #555;
+        border-bottom-left-radius: 10px;
+        border-bottom-right-radius: 10px;
+        box-shadow: inset 0 -5px 10px rgba(0,0,0,0.2);
+    }
+
+    /* The opening effect at the top */
+    .bucket-top {
+        position: absolute;
+        top: -20px;
+        width: 100%;
+        height: 40px;
+        border: 8px solid #555;
+        border-bottom: none;
+        border-top-left-radius: 80px;
+        border-top-right-radius: 80px;
+        background: transparent;
+        z-index: 3;
+        pointer-events: none;
+    }
+
+    .plate {
+        width: 160px;
+        height: 30px;
+        background-color: #ff7f50;
+        margin: 5px 0;
+        border-radius: 10px;
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        z-index: 1;
+        position: relative;
+    }
+
+    @keyframes pushIn {
+        from { transform: translateY(-150px); opacity: 0; }
+        to { transform: translateY(0); opacity: 1; }
+    }
+
+    @keyframes popOut {
+        from { transform: translateY(0); opacity: 1; }
+        to { transform: translateY(-150px); opacity: 0; }
+    }
+
+    .buttons {
+        margin-top: 20px;
+    }
+
+    button {
+        padding: 10px 20px;
+        margin: 5px;
+        font-size: 16px;
+        cursor: pointer;
+        border: none;
+        border-radius: 5px;
+        background-color: #333;
+        color: white;
+        transition: 0.3s;
+    }
+
+    button:hover {
+        background-color: #555;
+    }
+
+    .status {
+        margin-top: 15px;
+        font-size: 18px;
+        font-weight: bold;
+        color: #444;
+        height: 25px;
+    }
+</style>
+</head>
+<body>
+
+<h1>Stack Visualizer (Open Bucket)</h1>
+
+<div class="stack-container" id="stack">
+    <div class="bucket-top"></div>
+</div>
+
+<div class="buttons">
+    <button onclick="pushPlate()">Push Plate</button>
+    <button onclick="popPlate()">Pop Plate</button>
+</div>
+
+<div class="status" id="status">Status: Waiting for action...</div>
+
+<script>
+    let stack = [];
+    let plateCount = 0;
+    const MAX_CAPACITY = 9; // max plates allowed
+
+    function pushPlate() {
+        if (stack.length >= MAX_CAPACITY) {
+            updateStatus("Stack is full! Overflow 🚨");
+            return;
+        }
+
+        plateCount++;
+        const stackContainer = document.getElementById("stack");
+        const plate = document.createElement("div");
+        plate.classList.add("plate");
+        plate.textContent = "Plate " + plateCount;
+        plate.style.animation = "pushIn 0.6s ease-out";
+        stackContainer.appendChild(plate);
+        stack.push(plate);
+        updateStatus(`Plate ${plateCount} pushed in`);
+    }
+
+    function popPlate() {
+        if (stack.length === 0) {
+            updateStatus("Stack is empty! Cannot pop.");
+            return;
+        }
+
+        const plate = stack.pop();
+        plate.style.animation = "popOut 0.6s ease-in forwards";
+        updateStatus(`${plate.textContent} popped out`);
+        setTimeout(() => {
+            plate.remove();
+        }, 600);
+    }
+
+    function updateStatus(message) {
+        document.getElementById("status").textContent = "Status: " + message;
+    }
+</script>
+
+</body>
+</html>

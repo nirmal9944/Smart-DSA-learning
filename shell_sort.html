@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shell Sort Visualization</title>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    background: linear-gradient(135deg, #1e1b4b, #0f172a);
+    color: #f1f5f9;
+    margin: 0;
+    padding: 20px;
+  }
+  h1 {
+    margin: 0 0 15px;
+    font-size: 22px;
+    color: #cbd5e1;
+  }
+  .panel {
+    background: rgba(30, 41, 59, 0.9);
+    padding: 15px;
+    border-radius: 12px;
+    box-shadow: 0 0 15px rgba(0,0,0,0.4);
+    max-width: 900px;
+    margin: 0 auto;
+  }
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  button {
+    padding: 6px 14px;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    cursor: pointer;
+    font-weight: bold;
+    background: linear-gradient(90deg, #7c3aed, #5b21b6);
+    color: white;
+    transition: background 0.3s ease;
+  }
+  button:hover {
+    background: linear-gradient(90deg, #8b5cf6, #6d28d9);
+  }
+  button.secondary {
+    background: transparent;
+    border: 1px solid #475569;
+    color: #94a3b8;
+  }
+  label {
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  input[type=range] {
+    width: 100px;
+    accent-color: #7c3aed;
+  }
+  #container {
+    position: relative;
+    height: 400px;
+    display: flex;
+    align-items: flex-end;
+    gap: 2px;
+    background: rgba(255,255,255,0.03);
+    padding: 10px;
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .bar {
+    background: #38bdf8;
+    flex: 1;
+    border-radius: 4px 4px 0 0;
+    transition: height 0.3s ease, background 0.3s ease;
+  }
+  .bar.active {
+    background: #fbbf24;
+  }
+  .bar.swap {
+    background: #22c55e;
+  }
+  .status-line {
+    margin-top: 10px;
+    font-size: 14px;
+    color: #94a3b8;
+  }
+</style>
+</head>
+<body>
+<div class="panel">
+  <h1>Shell Sort Visualization</h1>
+  <div class="controls">
+    <button id="resetBtn">Reset Array</button>
+    <button id="playBtn">Play</button>
+    <button id="pauseBtn" class="secondary">Pause</button>
+    <button id="stepBtn">Step</button>
+    <label>Speed: <input type="range" id="speedRange" min="50" max="1000" value="300"></label>
+    <label>Size: <input type="range" id="sizeRange" min="5" max="50" value="20"></label>
+  </div>
+  <div id="container"></div>
+  <div id="statusLine" class="status-line"></div>
+</div>
+
+<script>
+let array = [];
+let steps = [];
+let stepIndex = 0;
+let playing = false;
+let timer = null;
+
+function generateArray(size = 20) {
+  array = Array.from({length: size}, () => Math.floor(Math.random() * 100) + 10);
+  renderArray();
+  steps = shellSortSteps([...array]);
+  stepIndex = 0;
+  setHint(`Array generated with ${size} elements.`);
+}
+
+function renderArray(highlights = {}) {
+  const container = document.getElementById("container");
+  container.innerHTML = "";
+  array.forEach((value, idx) => {
+    const bar = document.createElement("div");
+    bar.className = "bar";
+    if (highlights.active && highlights.active.includes(idx)) bar.classList.add("active");
+    if (highlights.swap && highlights.swap.includes(idx)) bar.classList.add("swap");
+    bar.style.height = value * 3 + "px";
+    container.appendChild(bar);
+  });
+}
+
+function shellSortSteps(arr) {
+  let steps = [];
+  let n = arr.length;
+  for (let gap = Math.floor(n/2); gap > 0; gap = Math.floor(gap/2)) {
+    for (let i = gap; i < n; i++) {
+      let temp = arr[i];
+      let j = i;
+      steps.push({arr: [...arr], active: [i], swap: [], msg: `Gap = ${gap}, picking index ${i}`});
+      while (j >= gap && arr[j - gap] > temp) {
+        arr[j] = arr[j - gap];
+        steps.push({arr: [...arr], active: [j, j-gap], swap: [j, j-gap], msg: `Swapping index ${j} and ${j-gap}`});
+        j -= gap;
+      }
+      arr[j] = temp;
+      steps.push({arr: [...arr], active: [j], swap: [], msg: `Placed value at index ${j}`});
+    }
+  }
+  steps.push({arr: [...arr], active: [], swap: [], msg: "Sorting complete"});
+  return steps;
+}
+
+function nextStep() {
+  if (stepIndex >= steps.length) {
+    stop();
+    return;
+  }
+  const step = steps[stepIndex];
+  array = [...step.arr];
+  renderArray({active: step.active, swap: step.swap});
+  setHint(step.msg || "");
+  stepIndex++;
+}
+
+function play() {
+  if (playing) return;
+  playing = true;
+  const speed = Number(document.getElementById("speedRange").value);
+  timer = setInterval(nextStep, speed);
+}
+
+function pause() {
+  playing = false;
+  if (timer) clearInterval(timer);
+}
+
+function stop() {
+  pause();
+}
+
+function setHint(text) {
+  document.getElementById('statusLine').textContent = text;
+}
+
+document.getElementById("resetBtn").onclick = () => {
+  pause();
+  generateArray(Number(document.getElementById("sizeRange").value));
+};
+
+document.getElementById("playBtn").onclick = play;
+document.getElementById("pauseBtn").onclick = pause;
+document.getElementById("stepBtn").onclick = () => {
+  pause();
+  nextStep();
+};
+
+document.getElementById("speedRange").oninput = () => {
+  if (playing) {
+    pause();
+    play();
+  }
+};
+
+document.getElementById("sizeRange").oninput = () => {
+  pause();
+  generateArray(Number(document.getElementById("sizeRange").value));
+};
+
+// initial
+generateArray();
+</script>
+</body>
+</html>
